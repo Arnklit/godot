@@ -667,6 +667,8 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	EDITOR_SETTING(Variant::FLOAT, PROPERTY_HINT_RANGE, "editors/3d/default_fov", 70.0, "1,179,0.1,degrees")
 	EDITOR_SETTING(Variant::FLOAT, PROPERTY_HINT_RANGE, "editors/3d/default_z_near", 0.05, "0.01,10,0.01,or_greater,suffix:m")
 	EDITOR_SETTING(Variant::FLOAT, PROPERTY_HINT_RANGE, "editors/3d/default_z_far", 4000.0, "0.1,4000,0.1,or_greater,suffix:m")
+	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_LAYERS_3D_RENDER, "editors/3d/default_cull_mask", 1, "0.1,4000,0.1,or_greater,suffix:m")
+
 
 	// 3D: Navigation
 	_initial_set("editors/3d/navigation/invert_x_axis", false);

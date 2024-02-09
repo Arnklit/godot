@@ -707,6 +707,7 @@ private:
 	SpinBox *settings_fov = nullptr;
 	SpinBox *settings_znear = nullptr;
 	SpinBox *settings_zfar = nullptr;
+	SpinBox *settings_cullmask = nullptr;
 
 	void _snap_changed();
 	void _snap_update();
@@ -843,6 +844,7 @@ public:
 	float get_znear() const { return settings_znear->get_value(); }
 	float get_zfar() const { return settings_zfar->get_value(); }
 	float get_fov() const { return settings_fov->get_value(); }
+	int get_cullmask() const { return settings_cullmask->get_value(); }
 
 	Transform3D get_gizmo_transform() const { return gizmo.transform; }
 	bool is_gizmo_visible() const;

@@ -8591,6 +8591,14 @@ Node3DEditor::Node3DEditor() {
 	settings_zfar->set_select_all_on_focus(true);
 	settings_vbc->add_margin_child(TTR("View Z-Far:"), settings_zfar);
 
+	settings_cullmask = memnew(SpinBox);
+	settings_cullmask->set_max(0);
+	settings_cullmask->set_min(10);
+	settings_cullmask->set_step(1);
+	settings_cullmask->set_value(EDITOR_GET("editors/3d/default_cull_mask"));
+	settings_cullmask->set_select_all_on_focus(true);
+	settings_vbc->add_margin_child(TTR("Cull Mask:"), settings_cullmask);
+
 	for (uint32_t i = 0; i < VIEWPORTS_COUNT; ++i) {
 		settings_dialog->connect("confirmed", callable_mp(viewports[i], &Node3DEditorViewport::_view_settings_confirmed).bind(0.0));
 	}
