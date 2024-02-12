@@ -294,6 +294,7 @@ private:
 	float get_znear() const;
 	float get_zfar() const;
 	float get_fov() const;
+	int get_cullmask() const;
 
 	ObjectID clicked;
 	ObjectID material_target;

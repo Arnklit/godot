@@ -671,6 +671,10 @@ float Node3DEditorViewport::get_fov() const {
 	return CLAMP(spatial_editor->get_fov() * cursor.fov_scale, MIN_FOV, MAX_FOV);
 }
 
+int Node3DEditorViewport::get_cullmask() const {
+	return spatial_editor->get_cullmask();
+}
+
 Transform3D Node3DEditorViewport::_get_camera_transform() const {
 	return camera->get_global_transform();
 }
@@ -5992,6 +5996,9 @@ void Node3DEditor::set_state(const Dictionary &p_state) {
 	if (d.has("fov")) {
 		settings_fov->set_value(double(d["fov"]));
 	}
+	if (d.has("cull_mask")) {
+		settings_cullmask->set_value(int(d["cull_mask"]));
+	}
 	if (d.has("show_grid")) {
 		bool use = d["show_grid"];
 
@@ -8066,6 +8073,7 @@ void Node3DEditor::clear() {
 	settings_fov->set_value(EDITOR_GET("editors/3d/default_fov"));
 	settings_znear->set_value(EDITOR_GET("editors/3d/default_z_near"));
 	settings_zfar->set_value(EDITOR_GET("editors/3d/default_z_far"));
+	settings_cullmask->set_value(EDITOR_GET("editors/3d/default_cull_mask"));
 
 	snap_translate_value = EditorSettings::get_singleton()->get_project_metadata("3d_editor", "snap_translate_value", 1);
 	snap_rotate_value = EditorSettings::get_singleton()->get_project_metadata("3d_editor", "snap_rotate_value", 15);
