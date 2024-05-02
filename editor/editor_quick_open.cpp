@@ -285,6 +285,9 @@ void EditorQuickOpen::_notification(int p_what) {
 
 void EditorQuickOpen::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("quick_open"));
+
+	//BIND_ENUM_CONSTANT(DISPLAY_THUMBNAILS);
+	//BIND_ENUM_CONSTANT(DISPLAY_LIST);
 }
 
 EditorQuickOpen::EditorQuickOpen() {
@@ -297,6 +300,32 @@ EditorQuickOpen::EditorQuickOpen() {
 	vbc->add_margin_child(TTR("Search:"), search_box);
 	register_text_enter(search_box);
 
+	pathhb = memnew(HBoxContainer);
+	vbc->add_child(pathhb);
+
+	Ref<ButtonGroup> view_mode_group;
+	view_mode_group.instantiate();
+
+	mode_thumbnails = memnew(Button);
+	mode_thumbnails->set_theme_type_variation("FlatButton");
+	mode_thumbnails->set_icon(get_editor_theme_icon(SNAME("FileThumbnail")));
+	//mode_thumbnails->connect("pressed", callable_mp(this, &EditorFileDialog::set_display_mode).bind(DISPLAY_THUMBNAILS));
+	mode_thumbnails->set_toggle_mode(true);
+	//mode_thumbnails->set_pressed(display_mode == DISPLAY_THUMBNAILS);
+	mode_thumbnails->set_button_group(view_mode_group);
+	mode_thumbnails->set_tooltip_text(TTR("View items as a grid of thumbnails."));
+	pathhb->add_child(mode_thumbnails);
+
+	mode_list = memnew(Button);
+	mode_list->set_theme_type_variation("FlatButton");
+	mode_list->set_icon(get_editor_theme_icon(SNAME("FileList")));
+	//mode_list->connect("pressed", callable_mp(this, &EditorFileDialog::set_display_mode).bind(DISPLAY_LIST));
+	mode_list->set_toggle_mode(true);
+	//mode_list->set_pressed(display_mode == DISPLAY_LIST);
+	mode_list->set_button_group(view_mode_group);
+	mode_list->set_tooltip_text(TTR("View items as a list."));
+	pathhb->add_child(mode_list);
+
 	search_options = memnew(Tree);
 	search_options->set_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
 	search_options->connect("item_activated", callable_mp(this, &EditorQuickOpen::_confirmed));
@@ -305,7 +334,6 @@ EditorQuickOpen::EditorQuickOpen() {
 	search_options->set_hide_folding(true);
 	search_options->add_theme_constant_override("draw_guides", 1);
 	vbc->add_margin_child(TTR("Matches:"), search_options, true);
-
 	set_ok_button_text(TTR("Open"));
 	set_hide_on_ok(false);
 }

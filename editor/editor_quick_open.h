@@ -50,6 +50,10 @@ class EditorQuickOpen : public ConfirmationDialog {
 	Vector<String> files;
 	OAHashMap<String, Ref<Texture2D>> icons;
 
+	Button *mode_thumbnails = nullptr;
+	Button *mode_list = nullptr;
+	HBoxContainer *pathhb = nullptr;
+
 	struct Entry {
 		String path;
 		float score = 0;
@@ -77,6 +81,11 @@ protected:
 	static void _bind_methods();
 
 public:
+	//	enum DisplayMode {
+	//		DISPLAY_THUMBNAILS,
+	//		DISPLAY_LIST
+	//	};
+
 	String get_base_type() const;
 
 	String get_selected() const;
