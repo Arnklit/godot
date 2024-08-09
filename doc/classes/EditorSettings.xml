@@ -412,6 +412,9 @@
 		<member name="editors/animation/onion_layers_past_color" type="Color" setter="" getter="">
 			The modulate color to use for "past" frames displayed in the animation editor's onion skinning feature.
 		</member>
+		<member name="editors/animation/default_bezier_key_behavior" type="int" setter="" getter="">
+			The default behavior for new bezier keys.
+		</member>
 		<member name="editors/grid_map/pick_distance" type="float" setter="" getter="">
 			The maximum distance at which tiles can be placed on a GridMap, relative to the camera position (in 3D units).
 		</member>
