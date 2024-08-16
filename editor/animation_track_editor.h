@@ -597,8 +597,12 @@ class AnimationTrackEditor : public VBoxContainer {
 	void _anim_paste_keys(float p_ofs, bool p_ofs_valid, int p_track);
 
 	void _view_group_toggle();
+
+	void _sort_alphebetical_toggle();
+
 	Button *view_group = nullptr;
 	Button *selected_filter = nullptr;
+	Button *sort_alphabetical = nullptr;
 
 	void _auto_fit();
 	void _auto_fit_bezier();

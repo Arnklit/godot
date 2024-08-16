@@ -4883,6 +4883,7 @@ void AnimationTrackEditor::_notification(int p_what) {
 			bezier_edit_icon->set_icon(get_editor_theme_icon(SNAME("EditBezier")));
 			snap->set_icon(get_editor_theme_icon(SNAME("Snap")));
 			view_group->set_icon(get_editor_theme_icon(view_group->is_pressed() ? SNAME("AnimationTrackList") : SNAME("AnimationTrackGroup")));
+			sort_alphabetical->set_icon(get_editor_theme_icon(SNAME("Sort")));
 			selected_filter->set_icon(get_editor_theme_icon(SNAME("AnimationFilter")));
 			imported_anim_warning->set_icon(get_editor_theme_icon(SNAME("NodeWarning")));
 			dummy_player_warning->set_icon(get_editor_theme_icon(SNAME("NodeWarning")));
@@ -6994,6 +6995,9 @@ void AnimationTrackEditor::_view_group_toggle() {
 	bezier_edit->set_filtered(selected_filter->is_pressed());
 }
 
+void AnimationTrackEditor::_sort_alphebetical_toggle() {
+}
+
 bool AnimationTrackEditor::is_grouping_tracks() {
 	if (!view_group) {
 		return false;
@@ -7283,6 +7287,14 @@ AnimationTrackEditor::AnimationTrackEditor() {
 	selected_filter->set_tooltip_text(TTR("Only show tracks from nodes selected in tree."));
 
 	bottom_hb->add_child(selected_filter);
+
+	sort_alphabetical = memnew(Button);
+	sort_alphabetical->set_flat(true);
+	sort_alphabetical->connect(SceneStringName(pressed), callable_mp(this, &AnimationTrackEditor::_sort_alphebetical_toggle));
+	sort_alphabetical->set_toggle_mode(true);
+	sort_alphabetical->set_tooltip_text(TTR("Sort tracks alphabetically."));
+
+	bottom_hb->add_child(sort_alphabetical);
 
 	view_group = memnew(Button);
 	view_group->set_flat(true);
