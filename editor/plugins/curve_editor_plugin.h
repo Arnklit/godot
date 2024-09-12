@@ -140,6 +140,12 @@ private:
 	float initial_grab_left_tangent;
 	float initial_grab_right_tangent;
 
+	bool box_selecting_attempt = false;
+	bool box_selecting = false;
+	bool box_selecting_add = false;
+	Vector2 box_selection_from;
+	Vector2 box_selection_to;
+
 	bool snap_enabled = false;
 	int snap_count = 10;
 };

@@ -128,6 +128,24 @@ void CurveEdit::_notification(int p_what) {
 		} break;
 		case NOTIFICATION_DRAW: {
 			_redraw();
+			if (box_selecting) {
+				Vector2 bs_from = box_selection_from;
+				Vector2 bs_to = box_selection_to;
+				if (bs_from.x > bs_to.x) {
+					SWAP(bs_from.x, bs_to.x);
+				}
+				if (bs_from.y > bs_to.y) {
+					SWAP(bs_from.y, bs_to.y);
+				}
+				draw_rect(
+						Rect2(bs_from, bs_to - bs_from),
+						get_theme_color(SNAME("box_selection_fill_color"), EditorStringName(Editor)));
+				draw_rect(
+						Rect2(bs_from, bs_to - bs_from),
+						get_theme_color(SNAME("box_selection_stroke_color"), EditorStringName(Editor)),
+						false,
+						Math::round(EDSCALE));
+			}
 		} break;
 		case NOTIFICATION_VISIBILITY_CHANGED: {
 			if (!is_visible()) {
@@ -224,7 +242,7 @@ void CurveEdit::gui_input(const Ref<InputEvent> &p_event) {
 				if (selected_index < curve->get_point_count() - 1) {
 					initial_grab_right_tangent = curve->get_point_right_tangent(selected_index);
 				}
-			} else if (grabbing == GRAB_NONE) {
+			} else if (grabbing == GRAB_NONE && mb->is_double_click()) {
 				// Adding a new point. Insert a temporary point for the user to adjust, so it's not in the undo/redo.
 				Vector2 new_pos = get_world_pos(mpos).clamp(Vector2(0.0, curve->get_min_value()), Vector2(1.0, curve->get_max_value()));
 				if (snap_enabled || mb->is_command_or_control_pressed()) {
@@ -347,6 +365,14 @@ void CurveEdit::gui_input(const Ref<InputEvent> &p_event) {
 			hovered_tangent_index = get_tangent_at(mpos);
 			queue_redraw();
 		}
+	}
+	// Box select.
+	if (mb->get_position().x >= 0 && mb->get_position().x < get_size().width) {
+		box_selecting_attempt = true;
+		box_selecting = false;
+		box_selecting_add = false;
+		box_selection_from = mb->get_position();
+		return;
 	}
 }
 
