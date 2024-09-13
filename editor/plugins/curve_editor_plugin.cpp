@@ -365,14 +365,14 @@ void CurveEdit::gui_input(const Ref<InputEvent> &p_event) {
 			hovered_tangent_index = get_tangent_at(mpos);
 			queue_redraw();
 		}
-	}
-	// Box select.
-	if (mb->get_position().x >= 0 && mb->get_position().x < get_size().width) {
-		box_selecting_attempt = true;
-		box_selecting = false;
-		box_selecting_add = false;
-		box_selection_from = mb->get_position();
-		return;
+		// Box select.
+		if (mm->get_position().x >= 0 && mm->get_position().x < get_size().width) {
+			box_selecting_attempt = true;
+			box_selecting = false;
+			box_selecting_add = false;
+			box_selection_from = mm->get_position();
+			return;
+		}
 	}
 }
 

@@ -76,6 +76,7 @@ protected:
 
 private:
 	virtual void gui_input(const Ref<InputEvent> &p_event) override;
+	void _clear_selection();
 	void _curve_changed();
 
 	int get_point_at(Vector2 p_pos) const;
