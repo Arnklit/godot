@@ -258,6 +258,15 @@ void CurveEdit::gui_input(const Ref<InputEvent> &p_event) {
 				grabbing = GRAB_ADD;
 				initial_grab_pos = new_pos;
 			}
+
+			// Box select.
+			if (mb->get_position().x >= 0 && mb->get_position().x < get_size().width) {
+				box_selecting_attempt = true; // I am hitting this code
+				box_selecting = false;
+				box_selecting_add = false;
+				box_selection_from = mb->get_position();
+				return;
+			}
 		}
 	}
 
@@ -365,14 +374,21 @@ void CurveEdit::gui_input(const Ref<InputEvent> &p_event) {
 			hovered_tangent_index = get_tangent_at(mpos);
 			queue_redraw();
 		}
-		// Box select.
-		if (mm->get_position().x >= 0 && mm->get_position().x < get_size().width) {
-			box_selecting_attempt = true;
-			box_selecting = false;
-			box_selecting_add = false;
-			box_selection_from = mm->get_position();
-			return;
+	}
+
+	if (box_selecting_attempt && mm.is_valid()) {
+		if (!box_selecting) {
+			box_selecting = true;
+			box_selecting_add = mm->is_shift_pressed();
 		}
+
+		box_selection_to = mm->get_position();
+
+		if (get_local_mouse_position().y < 0) {
+			// Avoid cursor from going too above, so it does not lose focus with viewport.
+			warp_mouse(Vector2(get_local_mouse_position().x, 0));
+		}
+		queue_redraw();
 	}
 }
 
