@@ -256,7 +256,8 @@ class AnimationTrackEdit : public Control {
 	bool read_only = false;
 	int track = 0;
 
-	Rect2 check_rect;
+	Rect2 selected_rect;
+	Rect2 enabled_rect;
 	Rect2 path_rect;
 
 	Rect2 update_mode_rect;

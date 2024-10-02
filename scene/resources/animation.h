@@ -112,6 +112,7 @@ public:
 		TypeHash thash = 0; // Hash by Path + SubPath + TrackType.
 		bool imported = false;
 		bool enabled = true;
+		bool selected = false;
 		Track() {}
 		virtual ~Track() {}
 	};
@@ -421,6 +422,9 @@ public:
 
 	void track_set_enabled(int p_track, bool p_enabled);
 	bool track_is_enabled(int p_track) const;
+
+	void track_set_selected(int p_track, bool p_selected);
+	bool track_is_selected(int p_track) const;
 
 	int track_insert_key(int p_track, double p_time, const Variant &p_key, real_t p_transition = 1);
 	void track_set_key_transition(int p_track, int p_key_idx, real_t p_transition);

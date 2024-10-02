@@ -3734,6 +3734,17 @@ bool Animation::track_is_enabled(int p_track) const {
 	return tracks[p_track]->enabled;
 }
 
+void Animation::track_set_selected(int p_track, bool p_selected) {
+	ERR_FAIL_INDEX(p_track, tracks.size());
+	tracks[p_track]->selected = p_selected;
+	emit_changed();
+}
+
+bool Animation::track_is_selected(int p_track) const {
+	ERR_FAIL_INDEX_V(p_track, tracks.size(), false);
+	return tracks[p_track]->selected;
+}
+
 void Animation::track_move_up(int p_track) {
 	if (p_track >= 0 && p_track < (tracks.size() - 1)) {
 		SWAP(tracks.write[p_track], tracks.write[p_track + 1]);

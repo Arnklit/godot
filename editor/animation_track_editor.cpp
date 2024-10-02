@@ -2061,13 +2061,18 @@ void AnimationTrackEdit::_notification(int p_what) {
 			// Names and icons.
 
 			{
-				Ref<Texture2D> check = animation->track_is_enabled(track) ? get_theme_icon(SNAME("checked"), SNAME("CheckBox")) : get_theme_icon(SNAME("unchecked"), SNAME("CheckBox"));
+				Ref<Texture2D> check = animation->track_is_selected(track) ? get_theme_icon(SNAME("checked"), SNAME("CheckBox")) : get_theme_icon(SNAME("unchecked"), SNAME("CheckBox"));
+
+				Ref<Texture2D> enabled = animation->track_is_enabled(track) ? get_editor_theme_icon(SNAME("GuiVisibilityVisible")) : get_editor_theme_icon(SNAME("GuiVisibilityHidden"));
 
 				int ofs = in_group ? outer_margin : 0;
 
-				check_rect = Rect2(Point2(ofs, (get_size().height - check->get_height()) / 2).round(), check->get_size());
-				draw_texture(check, check_rect.position);
+				selected_rect = Rect2(Point2(ofs, (get_size().height - check->get_height()) / 2).round(), check->get_size());
+				draw_texture(check, selected_rect.position);
 				ofs += check->get_width() + h_separation;
+				enabled_rect = Rect2(Point2(ofs, (get_size().height - enabled->get_height()) / 2).round(), enabled->get_size());
+				draw_texture(enabled, enabled_rect.position);
+				ofs += enabled->get_width() + h_separation;
 
 				Ref<Texture2D> key_type_icon = _get_key_type_icon();
 				draw_texture(key_type_icon, Point2(ofs, (get_size().height - key_type_icon->get_height()) / 2).round());
@@ -2654,7 +2659,11 @@ Ref<Texture2D> AnimationTrackEdit::_get_key_type_icon() const {
 }
 
 String AnimationTrackEdit::get_tooltip(const Point2 &p_pos) const {
-	if (check_rect.has_point(p_pos)) {
+	if (selected_rect.has_point(p_pos)) {
+		return TTR("Select the track(s) to perform operations on multiple tracks.");
+	}
+
+	if (enabled_rect.has_point(p_pos)) {
 		return TTR("Toggle this track on/off.");
 	}
 
@@ -2859,7 +2868,7 @@ void AnimationTrackEdit::gui_input(const Ref<InputEvent> &p_event) {
 		Point2 pos = mb->get_position();
 
 		if (!read_only) {
-			if (check_rect.has_point(pos)) {
+			if (enabled_rect.has_point(pos)) {
 				EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 				undo_redo->create_action(TTR("Toggle Track Enabled"));
 				undo_redo->add_do_method(animation.ptr(), "track_set_enabled", track, !animation->track_is_enabled(track));
@@ -2975,6 +2984,13 @@ void AnimationTrackEdit::gui_input(const Ref<InputEvent> &p_event) {
 				accept_event();
 				return;
 			}
+		}
+
+		if (selected_rect.has_point(pos)) {
+			EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
+			animation->track_set_selected(track, !animation->track_is_selected(track));
+			queue_redraw();
+			accept_event();
 		}
 
 		if (_try_select_at_ui_pos(pos, mb->is_command_or_control_pressed() || mb->is_shift_pressed(), true)) {
