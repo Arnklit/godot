@@ -128,24 +128,6 @@ void CurveEdit::_notification(int p_what) {
 		} break;
 		case NOTIFICATION_DRAW: {
 			_redraw();
-			if (box_selecting) {
-				Vector2 bs_from = box_selection_from;
-				Vector2 bs_to = box_selection_to;
-				if (bs_from.x > bs_to.x) {
-					SWAP(bs_from.x, bs_to.x);
-				}
-				if (bs_from.y > bs_to.y) {
-					SWAP(bs_from.y, bs_to.y);
-				}
-				draw_rect(
-						Rect2(bs_from, bs_to - bs_from),
-						get_theme_color(SNAME("box_selection_fill_color"), EditorStringName(Editor)));
-				draw_rect(
-						Rect2(bs_from, bs_to - bs_from),
-						get_theme_color(SNAME("box_selection_stroke_color"), EditorStringName(Editor)),
-						false,
-						Math::round(EDSCALE));
-			}
 		} break;
 		case NOTIFICATION_VISIBILITY_CHANGED: {
 			if (!is_visible()) {
@@ -376,13 +358,13 @@ void CurveEdit::gui_input(const Ref<InputEvent> &p_event) {
 		}
 	}
 
-	if (box_selecting_attempt && mm.is_valid()) {
+	if (box_selecting_attempt && mb.is_valid() && !mb->is_pressed() && mb->get_button_index() == MouseButton::LEFT) {
 		if (!box_selecting) {
 			box_selecting = true;
-			box_selecting_add = mm->is_shift_pressed();
+			box_selecting_add = mb->is_shift_pressed();
 		}
 
-		box_selection_to = mm->get_position();
+		box_selection_to = mb->get_position();
 
 		if (get_local_mouse_position().y < 0) {
 			// Avoid cursor from going too above, so it does not lose focus with viewport.
@@ -947,6 +929,20 @@ void CurveEdit::_redraw() {
 		}
 
 		draw_rect(Rect2(get_view_pos(point_pos), Vector2(0, 0)).grow(point_radius), selected_point_color);
+	}
+
+	if (box_selecting_attempt) {
+		Vector2 bs_from = box_selection_from;
+		Vector2 bs_to = box_selection_to;
+
+		draw_rect(
+				Rect2(bs_from, bs_to - bs_from),
+				get_theme_color(SNAME("box_selection_fill_color"), EditorStringName(Editor)));
+		draw_rect(
+				Rect2(bs_from, bs_to - bs_from),
+				get_theme_color(SNAME("box_selection_stroke_color"), EditorStringName(Editor)),
+				false,
+				Math::round(EDSCALE));
 	}
 
 	// Draw help text.
