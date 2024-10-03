@@ -112,7 +112,22 @@ private:
 	Ref<Curve> curve;
 	PopupMenu *_presets_menu = nullptr;
 
-	int selected_index = -1;
+	typedef Pair<int, int> IntPair;
+
+	struct PairCompare {
+		bool operator()(const IntPair &lh, const IntPair &rh) {
+			if (lh.first == rh.first) {
+				return lh.second < rh.second;
+			} else {
+				return lh.first < rh.first;
+			}
+		}
+	};
+
+	typedef RBSet<IntPair, PairCompare> SelectionSet;
+	SelectionSet selection;
+
+	//int selected_index = -1;
 	int hovered_index = -1;
 	TangentIndex selected_tangent_index = TANGENT_NONE;
 	TangentIndex hovered_tangent_index = TANGENT_NONE;

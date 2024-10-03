@@ -144,17 +144,17 @@ void CurveEdit::gui_input(const Ref<InputEvent> &p_event) {
 	}
 
 	Ref<InputEventKey> k = p_event;
-	if (k.is_valid()) {
+	if (k.is_valid() && selection.size() == 1) {
 		// Deleting points or making tangents linear.
 		if (k->is_pressed() && k->get_keycode() == Key::KEY_DELETE) {
 			if (selected_tangent_index != TANGENT_NONE) {
-				toggle_linear(selected_index, selected_tangent_index);
-			} else if (selected_index != -1) {
+				toggle_linear(selection[0], selected_tangent_index);
+			} else if (selection[0] != -1) {
 				if (grabbing == GRAB_ADD) {
-					curve->remove_point(selected_index); // Point is temporary, so remove directly from curve.
+					curve->remove_point(selection[0]); // Point is temporary, so remove directly from curve.
 					set_selected_index(-1);
 				} else {
-					remove_point(selected_index);
+					remove_point(selection[0]);
 				}
 				grabbing = GRAB_NONE;
 				hovered_index = -1;
@@ -169,14 +169,14 @@ void CurveEdit::gui_input(const Ref<InputEvent> &p_event) {
 	}
 
 	Ref<InputEventMouseButton> mb = p_event;
-	if (mb.is_valid() && mb->is_pressed()) {
+	if (mb.is_valid() && mb->is_pressed() && selection.size() == 1) {
 		Vector2 mpos = mb->get_position();
 
 		if (mb->get_button_index() == MouseButton::RIGHT || mb->get_button_index() == MouseButton::MIDDLE) {
 			if (mb->get_button_index() == MouseButton::RIGHT && grabbing == GRAB_MOVE) {
 				// Move a point to its old position.
-				curve->set_point_value(selected_index, initial_grab_pos.y);
-				curve->set_point_offset(selected_index, initial_grab_pos.x);
+				curve->set_point_value(selection[0], initial_grab_pos.y);
+				curve->set_point_offset(selection[0], initial_grab_pos.x);
 				set_selected_index(initial_grab_index);
 				hovered_index = get_point_at(mpos);
 				grabbing = GRAB_NONE;
@@ -184,7 +184,7 @@ void CurveEdit::gui_input(const Ref<InputEvent> &p_event) {
 				// Remove a point or make a tangent linear.
 				selected_tangent_index = get_tangent_at(mpos);
 				if (selected_tangent_index != TANGENT_NONE) {
-					toggle_linear(selected_index, selected_tangent_index);
+					toggle_linear(selection[0], selected_tangent_index);
 				} else {
 					int point_to_remove = get_point_at(mpos);
 					if (point_to_remove == -1) {
@@ -213,16 +213,16 @@ void CurveEdit::gui_input(const Ref<InputEvent> &p_event) {
 				queue_redraw();
 			}
 
-			if (selected_index != -1) {
+			if (selection.size() == 1) {
 				// If an existing point/tangent was grabbed, remember a few things about it.
 				grabbing = GRAB_MOVE;
-				initial_grab_pos = curve->get_point_position(selected_index);
-				initial_grab_index = selected_index;
-				if (selected_index > 0) {
-					initial_grab_left_tangent = curve->get_point_left_tangent(selected_index);
+				initial_grab_pos = curve->get_point_position(selection[0]);
+				initial_grab_index = selection[0];
+				if (selection[0] > 0) {
+					initial_grab_left_tangent = curve->get_point_left_tangent(selection[0]);
 				}
-				if (selected_index < curve->get_point_count() - 1) {
-					initial_grab_right_tangent = curve->get_point_right_tangent(selected_index);
+				if (selection[0] < curve->get_point_count() - 1) {
+					initial_grab_right_tangent = curve->get_point_right_tangent(selection[0]);
 				}
 			} else if (grabbing == GRAB_NONE && mb->is_double_click()) {
 				// Adding a new point. Insert a temporary point for the user to adjust, so it's not in the undo/redo.
@@ -232,22 +232,20 @@ void CurveEdit::gui_input(const Ref<InputEvent> &p_event) {
 					new_pos.y = Math::snapped(new_pos.y - curve->get_min_value(), curve->get_range() / snap_count) + curve->get_min_value();
 				}
 
-				new_pos.x = get_offset_without_collision(selected_index, new_pos.x, mpos.x >= get_view_pos(new_pos).x);
+				new_pos.x = get_offset_without_collision(selection[0], new_pos.x, mpos.x >= get_view_pos(new_pos).x);
 
 				// Add a temporary point for the user to adjust before adding it permanently.
 				int new_idx = curve->add_point_no_update(new_pos);
 				set_selected_index(new_idx);
 				grabbing = GRAB_ADD;
 				initial_grab_pos = new_pos;
-			}
-
-			// Box select.
-			if (mb->get_position().x >= 0 && mb->get_position().x < get_size().width) {
-				box_selecting_attempt = true; // I am hitting this code
+			} else {
+				// box select
+				box_selecting_attempt = true;
 				box_selecting = false;
 				box_selecting_add = false;
 				box_selection_from = mb->get_position();
-				return;
+				queue_redraw(); // is this needed?
 			}
 		}
 	}
@@ -255,22 +253,22 @@ void CurveEdit::gui_input(const Ref<InputEvent> &p_event) {
 	if (mb.is_valid() && mb->get_button_index() == MouseButton::LEFT && !mb->is_pressed()) {
 		if (selected_tangent_index != TANGENT_NONE) {
 			// Finish moving a tangent control.
-			if (selected_index == 0) {
-				set_point_right_tangent(selected_index, curve->get_point_right_tangent(selected_index));
-			} else if (selected_index == curve->get_point_count() - 1) {
-				set_point_left_tangent(selected_index, curve->get_point_left_tangent(selected_index));
+			if (selection[0] == 0) {
+				set_point_right_tangent(selection[0], curve->get_point_right_tangent(selection[0]));
+			} else if (selection[0] == curve->get_point_count() - 1) {
+				set_point_left_tangent(selection[0], curve->get_point_left_tangent(selection[0]));
 			} else {
-				set_point_tangents(selected_index, curve->get_point_left_tangent(selected_index), curve->get_point_right_tangent(selected_index));
+				set_point_tangents(selection[0], curve->get_point_left_tangent(selection[0]), curve->get_point_right_tangent(selection[0]));
 			}
 			grabbing = GRAB_NONE;
 		} else if (grabbing == GRAB_MOVE) {
 			// Finish moving a point.
-			set_point_position(selected_index, curve->get_point_position(selected_index));
+			set_point_position(selection[0], curve->get_point_position(selection[0]));
 			grabbing = GRAB_NONE;
 		} else if (grabbing == GRAB_ADD) {
 			// Finish inserting a new point. Remove the temporary point and insert a permanent one in its place.
-			Vector2 new_pos = curve->get_point_position(selected_index);
-			curve->remove_point(selected_index);
+			Vector2 new_pos = curve->get_point_position(selection[0]);
+			curve->remove_point(selection[0]);
 			add_point(new_pos);
 			grabbing = GRAB_NONE;
 		}
@@ -278,11 +276,11 @@ void CurveEdit::gui_input(const Ref<InputEvent> &p_event) {
 	}
 
 	Ref<InputEventMouseMotion> mm = p_event;
-	if (mm.is_valid()) {
+	if (mm.is_valid() && selection.size() < 2) {
 		Vector2 mpos = mm->get_position();
 
 		if (grabbing != GRAB_NONE && curve.is_valid()) {
-			if (selected_index != -1) {
+			if (selection.size() == 1) {
 				if (selected_tangent_index == TANGENT_NONE) {
 					// Drag point.
 					Vector2 new_pos = get_world_pos(mpos).clamp(Vector2(0.0, curve->get_min_value()), Vector2(1.0, curve->get_max_value()));
@@ -304,25 +302,25 @@ void CurveEdit::gui_input(const Ref<InputEvent> &p_event) {
 
 					// Allow to constraint the point between the adjacent two with Alt.
 					if (mm->is_alt_pressed()) {
-						float prev_point_offset = (selected_index > 0) ? (curve->get_point_position(selected_index - 1).x + 0.00001) : 0.0;
-						float next_point_offset = (selected_index < curve->get_point_count() - 1) ? (curve->get_point_position(selected_index + 1).x - 0.00001) : 1.0;
+						float prev_point_offset = (selection[0] > 0) ? (curve->get_point_position(selection[0] - 1).x + 0.00001) : 0.0;
+						float next_point_offset = (selection[0] < curve->get_point_count() - 1) ? (curve->get_point_position(selection[0] + 1).x - 0.00001) : 1.0;
 						new_pos.x = CLAMP(new_pos.x, prev_point_offset, next_point_offset);
 					}
 
-					new_pos.x = get_offset_without_collision(selected_index, new_pos.x, mpos.x >= get_view_pos(new_pos).x);
+					new_pos.x = get_offset_without_collision(selection[0], new_pos.x, mpos.x >= get_view_pos(new_pos).x);
 
 					// The index may change if the point is dragged across another one.
-					int i = curve->set_point_offset(selected_index, new_pos.x);
+					int i = curve->set_point_offset(selection[0], new_pos.x);
 					hovered_index = i;
 					set_selected_index(i);
 
 					new_pos.y = CLAMP(new_pos.y, curve->get_min_value(), curve->get_max_value());
-					curve->set_point_value(selected_index, new_pos.y);
+					curve->set_point_value(selection[0], new_pos.y);
 
 				} else {
 					// Drag tangent.
 
-					const Vector2 new_pos = curve->get_point_position(selected_index);
+					const Vector2 new_pos = curve->get_point_position(selection[0]);
 					const Vector2 control_pos = get_world_pos(mpos);
 
 					Vector2 dir = (control_pos - new_pos).normalized();
@@ -333,19 +331,19 @@ void CurveEdit::gui_input(const Ref<InputEvent> &p_event) {
 
 					// Adjust the tangents.
 					if (selected_tangent_index == TANGENT_LEFT) {
-						curve->set_point_left_tangent(selected_index, tangent);
+						curve->set_point_left_tangent(selection[0], tangent);
 
 						// Align the other tangent if it isn't linear and Shift is not pressed.
 						// If Shift is pressed at any point, restore the initial angle of the other tangent.
-						if (selected_index != (curve->get_point_count() - 1) && curve->get_point_right_mode(selected_index) != Curve::TANGENT_LINEAR) {
-							curve->set_point_right_tangent(selected_index, mm->is_shift_pressed() ? initial_grab_right_tangent : tangent);
+						if (selection[0] != (curve->get_point_count() - 1) && curve->get_point_right_mode(selection[0]) != Curve::TANGENT_LINEAR) {
+							curve->set_point_right_tangent(selection[0], mm->is_shift_pressed() ? initial_grab_right_tangent : tangent);
 						}
 
 					} else {
-						curve->set_point_right_tangent(selected_index, tangent);
+						curve->set_point_right_tangent(selection[0], tangent);
 
-						if (selected_index != 0 && curve->get_point_left_mode(selected_index) != Curve::TANGENT_LINEAR) {
-							curve->set_point_left_tangent(selected_index, mm->is_shift_pressed() ? initial_grab_left_tangent : tangent);
+						if (selection[0] != 0 && curve->get_point_left_mode(selection[0]) != Curve::TANGENT_LINEAR) {
+							curve->set_point_left_tangent(selection[0], mm->is_shift_pressed() ? initial_grab_left_tangent : tangent);
 						}
 					}
 				}
@@ -358,18 +356,48 @@ void CurveEdit::gui_input(const Ref<InputEvent> &p_event) {
 		}
 	}
 
-	if (box_selecting_attempt && mb.is_valid() && !mb->is_pressed() && mb->get_button_index() == MouseButton::LEFT) {
+	if (box_selecting_attempt && mm.is_valid()) {
 		if (!box_selecting) {
 			box_selecting = true;
-			box_selecting_add = mb->is_shift_pressed();
+			box_selecting_add = mm->is_shift_pressed();
 		}
 
-		box_selection_to = mb->get_position();
+		box_selection_to = mm->get_position();
 
-		if (get_local_mouse_position().y < 0) {
-			// Avoid cursor from going too above, so it does not lose focus with viewport.
-			warp_mouse(Vector2(get_local_mouse_position().x, 0));
+		//if (get_local_mouse_position().y < 0) {
+		//	// Avoid cursor from going too above, so it does not lose focus with viewport.
+		//	warp_mouse(Vector2(get_local_mouse_position().x, 0));
+		//}
+		queue_redraw();
+	}
+
+	if (box_selecting_attempt && mb.is_valid() && !mb->is_pressed() && mb->get_button_index() == MouseButton::LEFT) {
+		if (box_selecting) {
+			// do the select
+			if (!box_selecting_add) {
+				//_clear_selection();
+			}
+
+			Vector2 bs_from = box_selection_from;
+			Vector2 bs_to = box_selection_to;
+			if (bs_from.x > bs_to.x) {
+				SWAP(bs_from.x, bs_to.x);
+			}
+			if (bs_from.y > bs_to.y) {
+				SWAP(bs_from.y, bs_to.y);
+			}
+			Rect2 selection_rect(bs_from, bs_to - bs_from);
+
+			// Do a bunch of selection logic
+
+		} else {
+			//_clear_selection(); // Clicked and nothing happened, so clear the selection.
+
+			// Do some more unselect logic?
 		}
+
+		box_selecting_attempt = false;
+		box_selecting = false;
 		queue_redraw();
 	}
 }
@@ -423,15 +451,17 @@ void CurveEdit::use_preset(int p_preset_id) {
 	undo_redo->add_do_method(*curve, "_set_data", curve->get_data());
 	undo_redo->add_do_method(this, "set_selected_index", -1);
 	undo_redo->add_undo_method(*curve, "_set_data", previous_data);
-	undo_redo->add_undo_method(this, "set_selected_index", selected_index);
+	undo_redo->add_undo_method(this, "set_selected_index", selection[0]);
 	undo_redo->commit_action();
 }
 
 void CurveEdit::_curve_changed() {
 	queue_redraw();
 	// Point count can change in case of undo.
-	if (selected_index >= curve->get_point_count()) {
-		set_selected_index(-1);
+	for (int i = 0; i < selection.size(); i++) {
+		if (selection[i] >= curve->get_point_count()) {
+			set_selected_index(-1);
+		}
 	}
 }
 
@@ -931,7 +961,7 @@ void CurveEdit::_redraw() {
 		draw_rect(Rect2(get_view_pos(point_pos), Vector2(0, 0)).grow(point_radius), selected_point_color);
 	}
 
-	if (box_selecting_attempt) {
+	if (box_selecting) {
 		Vector2 bs_from = box_selection_from;
 		Vector2 bs_to = box_selection_to;
 
