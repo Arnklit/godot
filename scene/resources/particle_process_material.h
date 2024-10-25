@@ -58,6 +58,8 @@ public:
 		PARAM_ANGLE,
 		PARAM_SCALE,
 		PARAM_HUE_VARIATION,
+		PARAM_SATURATION_VARIATION,
+		PARAM_VALUE_VARIATION,
 		PARAM_ANIM_SPEED,
 		PARAM_ANIM_OFFSET,
 		PARAM_TURB_INFLUENCE_OVER_LIFE,
@@ -204,6 +206,8 @@ private:
 		StringName scale_min;
 		StringName scale_over_velocity_min;
 		StringName hue_variation_min;
+		StringName saturation_variation_min;
+		StringName value_variation_min;
 		StringName anim_speed_min;
 		StringName anim_offset_min;
 		StringName directional_velocity_min;
@@ -220,6 +224,8 @@ private:
 		StringName scale_max;
 		StringName scale_over_velocity_max;
 		StringName hue_variation_max;
+		StringName saturation_variation_max;
+		StringName value_variation_max;
 		StringName anim_speed_max;
 		StringName anim_offset_max;
 		StringName directional_velocity_max;
@@ -235,6 +241,8 @@ private:
 		StringName scale_texture;
 		StringName scale_over_velocity_texture;
 		StringName hue_variation_texture;
+		StringName saturation_variation_texture;
+		StringName value_variation_texture;
 		StringName anim_speed_texture;
 		StringName anim_offset_texture;
 		StringName velocity_limiter_texture;

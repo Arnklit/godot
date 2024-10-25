@@ -55,6 +55,8 @@ void ParticleProcessMaterial::init_shaders() {
 	shader_names->damping_min = "damping_min";
 	shader_names->scale_min = "scale_min";
 	shader_names->hue_variation_min = "hue_variation_min";
+	shader_names->saturation_variation_min = "saturation_variation_min";
+	shader_names->value_variation_min = "value_variation_min";
 	shader_names->anim_speed_min = "anim_speed_min";
 	shader_names->anim_offset_min = "anim_offset_min";
 	shader_names->directional_velocity_min = "directional_velocity_min";
@@ -71,6 +73,8 @@ void ParticleProcessMaterial::init_shaders() {
 	shader_names->damping_max = "damping_max";
 	shader_names->scale_max = "scale_max";
 	shader_names->hue_variation_max = "hue_variation_max";
+	shader_names->saturation_variation_max = "saturation_variation_max";
+	shader_names->value_variation_max = "value_variation_max";
 	shader_names->anim_speed_max = "anim_speed_max";
 	shader_names->anim_offset_max = "anim_offset_max";
 	shader_names->directional_velocity_max = "directional_velocity_max";
@@ -86,6 +90,8 @@ void ParticleProcessMaterial::init_shaders() {
 	shader_names->damping_texture = "damping_texture";
 	shader_names->scale_texture = "scale_curve";
 	shader_names->hue_variation_texture = "hue_rot_curve";
+	shader_names->saturation_variation_texture = "saturation_variation_curve";
+	shader_names->value_variation_texture = "value_variation_curve";
 	shader_names->anim_speed_texture = "animation_speed_curve";
 	shader_names->anim_offset_texture = "animation_offset_curve";
 	shader_names->directional_velocity_texture = "directional_velocity_curve";
@@ -224,6 +230,12 @@ void ParticleProcessMaterial::_update_shader() {
 	code += "uniform float hue_variation_min;\n";
 	code += "uniform float hue_variation_max;\n";
 
+	code += "uniform float saturation_variation_min;\n";
+	code += "uniform float saturation_variation_max;\n";
+
+	code += "uniform float value_variation_min;\n";
+	code += "uniform float value_variation_max;\n";
+
 	code += "uniform float anim_speed_min;\n";
 	code += "uniform float anim_speed_max;\n";
 
@@ -336,7 +348,7 @@ void ParticleProcessMaterial::_update_shader() {
 		code += "uniform sampler2D scale_curve : repeat_disable;\n";
 	}
 	if (tex_parameters[PARAM_HUE_VARIATION].is_valid()) {
-		code += "uniform sampler2D hue_rot_curve : repeat_disable;\n";
+		code += "uniform sampler2D hsv_hue_rot_curve : repeat_disable;\n";
 	}
 	if (tex_parameters[PARAM_ANIM_SPEED].is_valid()) {
 		code += "uniform sampler2D animation_speed_curve : repeat_disable;\n";
@@ -486,6 +498,21 @@ void ParticleProcessMaterial::_update_shader() {
 	code += "	return hue_rot_mat * current_color;\n";
 	code += "}\n\n";
 
+	code += "vec3 rgb_to_hsv(vec3 c) {\n";
+	code += "	vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);\n";
+	code += "	vec4 p = c.g < c.b ? vec4(c.bg, K.wz) : vec4(c.gb, K.xy);\n";
+	code += "	vec4 q = c.r < p.x ? vec4(p.xyw, c.r) : vec4(c.r, p.yzx);\n";
+	code += "	float d = q.x - min(q.w, q.y);\n";
+	code += "	float e = 1.0e-10;\n";
+	code += "	return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);\n";
+	code += "}\n\n";
+
+	code += "vec3 hsv_to_rgb(vec3 c) {\n";
+	code += "	vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);\n";
+	code += "	vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);\n";
+	code += "	return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);\n";
+	code += "}\n\n";
+
 	// Random functions.
 	code += "float rand_from_seed(inout uint seed) {\n";
 	code += "	int k;\n";
@@ -594,7 +621,7 @@ void ParticleProcessMaterial::_update_shader() {
 		code += "	parameters.scale *= texture(scale_curve, vec2(lifetime)).rgb;\n";
 	}
 	if (tex_parameters[PARAM_HUE_VARIATION].is_valid()) {
-		code += "	parameters.hue_rotation *= texture(hue_rot_curve, vec2(lifetime)).r;\n";
+		code += "	parameters.hue_rotation *= texture(hsv_hue_rot_curve, vec2(lifetime)).r;\n";
 	}
 	if (tex_parameters[PARAM_ANIM_OFFSET].is_valid()) {
 		code += "	parameters.animation_offset += texture(animation_offset_curve, vec2(lifetime)).r;\n";
@@ -608,7 +635,10 @@ void ParticleProcessMaterial::_update_shader() {
 	if (alpha_curve.is_valid()) {
 		code += "	parameters.color.a *= texture(alpha_curve, vec2(lifetime)).r;\n";
 	}
-	code += "	parameters.color = rotate_hue(parameters.color, parameters.hue_rotation);\n";
+	code += "	parameters.color.rgb = rgb_to_hsv(parameters.color.rgb);\n";
+	code += "	parameters.color.rgb.r = parameters.color.r + parameters.hue_rotation;\n";
+	code += "	parameters.color.rgb = hsv_to_rgb(parameters.color.rgb);\n";
+	//code += "	parameters.color = rotate_hue(parameters.color, parameters.hue_rotation);\n";
 	if (emission_curve.is_valid()) {
 		code += "	parameters.color.rgb *= 1.0 + texture(emission_curve, vec2(lifetime)).r;\n";
 	}
@@ -1267,6 +1297,12 @@ void ParticleProcessMaterial::set_param_min(Parameter p_param, float p_value) {
 		case PARAM_HUE_VARIATION: {
 			RenderingServer::get_singleton()->material_set_param(_get_material(), shader_names->hue_variation_min, p_value);
 		} break;
+		case PARAM_SATURATION_VARIATION: {
+			RenderingServer::get_singleton()->material_set_param(_get_material(), shader_names->saturation_variation_min, p_value);
+		} break;
+		case PARAM_VALUE_VARIATION: {
+			RenderingServer::get_singleton()->material_set_param(_get_material(), shader_names->value_variation_min, p_value);
+		} break;
 		case PARAM_ANIM_SPEED: {
 			RenderingServer::get_singleton()->material_set_param(_get_material(), shader_names->anim_speed_min, p_value);
 		} break;
@@ -1340,6 +1376,12 @@ void ParticleProcessMaterial::set_param_max(Parameter p_param, float p_value) {
 		} break;
 		case PARAM_HUE_VARIATION: {
 			RenderingServer::get_singleton()->material_set_param(_get_material(), shader_names->hue_variation_max, p_value);
+		} break;
+		case PARAM_SATURATION_VARIATION: {
+			RenderingServer::get_singleton()->material_set_param(_get_material(), shader_names->saturation_variation_max, p_value);
+		} break;
+		case PARAM_VALUE_VARIATION: {
+			RenderingServer::get_singleton()->material_set_param(_get_material(), shader_names->value_variation_max, p_value);
 		} break;
 		case PARAM_ANIM_SPEED: {
 			RenderingServer::get_singleton()->material_set_param(_get_material(), shader_names->anim_speed_max, p_value);
@@ -1435,6 +1477,14 @@ void ParticleProcessMaterial::set_param_texture(Parameter p_param, const Ref<Tex
 		} break;
 		case PARAM_HUE_VARIATION: {
 			RenderingServer::get_singleton()->material_set_param(_get_material(), shader_names->hue_variation_texture, tex_rid);
+			_adjust_curve_range(p_texture, -1, 1);
+		} break;
+		case PARAM_SATURATION_VARIATION: {
+			RenderingServer::get_singleton()->material_set_param(_get_material(), shader_names->saturation_variation_texture, tex_rid);
+			_adjust_curve_range(p_texture, -1, 1);
+		} break;
+		case PARAM_VALUE_VARIATION: {
+			RenderingServer::get_singleton()->material_set_param(_get_material(), shader_names->value_variation_texture, tex_rid);
 			_adjust_curve_range(p_texture, -1, 1);
 		} break;
 		case PARAM_ANIM_SPEED: {
@@ -2178,9 +2228,13 @@ void ParticleProcessMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "color_initial_ramp", PROPERTY_HINT_RESOURCE_TYPE, "GradientTexture1D"), "set_color_initial_ramp", "get_color_initial_ramp");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "alpha_curve", PROPERTY_HINT_RESOURCE_TYPE, "CurveTexture"), "set_alpha_curve", "get_alpha_curve");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "emission_curve", PROPERTY_HINT_RESOURCE_TYPE, "CurveTexture"), "set_emission_curve", "get_emission_curve");
-	ADD_SUBGROUP("Hue Variation", "hue_");
+	ADD_SUBGROUP("Hue Variation", "");
 	ADD_MIN_MAX_PROPERTY("hue_variation", "-1,1,0.01", PARAM_HUE_VARIATION);
 	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "hue_variation_curve", PROPERTY_HINT_RESOURCE_TYPE, "CurveTexture"), "set_param_texture", "get_param_texture", PARAM_HUE_VARIATION);
+	ADD_MIN_MAX_PROPERTY("saturation_variation", "-1,1,0.01", PARAM_SATURATION_VARIATION);
+	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "saturation_variation_curve", PROPERTY_HINT_RESOURCE_TYPE, "CurveTexture"), "set_param_texture", "get_param_texture", PARAM_SATURATION_VARIATION);
+	ADD_MIN_MAX_PROPERTY("value_variation", "-1,1,0.01", PARAM_VALUE_VARIATION);
+	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "value_variation_curve", PROPERTY_HINT_RESOURCE_TYPE, "CurveTexture"), "set_param_texture", "get_param_texture", PARAM_VALUE_VARIATION);
 	ADD_SUBGROUP("Animation", "anim_");
 	ADD_MIN_MAX_PROPERTY("anim_speed", "0,16,0.01,or_less,or_greater", PARAM_ANIM_SPEED);
 	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "anim_speed_curve", PROPERTY_HINT_RESOURCE_TYPE, "CurveTexture"), "set_param_texture", "get_param_texture", PARAM_ANIM_SPEED);

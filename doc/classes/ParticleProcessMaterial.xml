@@ -248,6 +248,24 @@
 		<member name="hue_variation_min" type="float" setter="set_param_min" getter="get_param_min" default="0.0">
 			Minimum equivalent of [member hue_variation_max].
 		</member>
+		<member name="saturation_variation_curve" type="Texture2D" setter="set_param_texture" getter="get_param_texture">
+			Each particle's saturation will vary along this [CurveTexture].
+		</member>
+		<member name="saturation_variation_max" type="float" setter="set_param_max" getter="get_param_max" default="0.0">
+			Maximum initial saturation variation applied to each particle. It will shift the particle color's saturation.
+		</member>
+		<member name="saturation_variation_min" type="float" setter="set_param_min" getter="get_param_min" default="0.0">
+			Minimum equivalent of [member saturation_variation_max].
+		</member>
+		<member name="value_variation_curve" type="Texture2D" setter="set_param_texture" getter="get_param_texture">
+			Each particle's value will vary along this [CurveTexture].
+		</member>
+		<member name="value_variation_max" type="float" setter="set_param_max" getter="get_param_max" default="0.0">
+			Maximum initial value variation applied to each particle. It will shift the particle color's value.
+		</member>
+		<member name="value_variation_min" type="float" setter="set_param_min" getter="get_param_min" default="0.0">
+			Minimum equivalent of [member value_variation_max].
+		</member>
 		<member name="inherit_velocity_ratio" type="float" setter="set_inherit_velocity_ratio" getter="get_inherit_velocity_ratio" default="0.0">
 			Percentage of the velocity of the respective [GPUParticles2D] or [GPUParticles3D] inherited by each particle when spawning.
 		</member>
@@ -441,10 +459,16 @@
 		<constant name="PARAM_HUE_VARIATION" value="9" enum="Parameter">
 			Use with [method set_param_min], [method set_param_max], and [method set_param_texture] to set hue variation properties.
 		</constant>
-		<constant name="PARAM_ANIM_SPEED" value="10" enum="Parameter">
+		<constant name="PARAM_SATURATION_VARIATION" value="10" enum="Parameter">
+			Use with [method set_param_min], [method set_param_max], and [method set_param_texture] to set hue variation properties.
+		</constant>
+		<constant name="PARAM_VALUE_VARIATION" value="11" enum="Parameter">
+			Use with [method set_param_min], [method set_param_max], and [method set_param_texture] to set hue variation properties.
+		</constant>
+		<constant name="PARAM_ANIM_SPEED" value="12" enum="Parameter">
 			Use with [method set_param_min], [method set_param_max], and [method set_param_texture] to set animation speed properties.
 		</constant>
-		<constant name="PARAM_ANIM_OFFSET" value="11" enum="Parameter">
+		<constant name="PARAM_ANIM_OFFSET" value="13" enum="Parameter">
 			Use with [method set_param_min], [method set_param_max], and [method set_param_texture] to set animation offset properties.
 		</constant>
 		<constant name="PARAM_RADIAL_VELOCITY" value="15" enum="Parameter">
