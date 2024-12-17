@@ -1565,9 +1565,11 @@ void AnimationBezierTrackEdit::gui_input(const Ref<InputEvent> &p_event) {
 			moving_selection_mouse_begin = Point2();
 			queue_redraw();
 		}
+		default_cursor_shape = CURSOR_ARROW;
 	}
 
 	if (scaling_selection && mb.is_valid() && !read_only && !mb->is_pressed() && mb->get_button_index() == MouseButton::LEFT) {
+		default_cursor_shape = CURSOR_ARROW;
 		if (abs(scaling_selection_scale.x - 1) > CMP_EPSILON || abs(scaling_selection_scale.y - 1) > CMP_EPSILON) {
 			// Scale it.
 			EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
@@ -1702,6 +1704,7 @@ void AnimationBezierTrackEdit::gui_input(const Ref<InputEvent> &p_event) {
 		if (!moving_selection) {
 			moving_selection = true;
 			select_single_attempt = IntPair(-1, -1);
+			default_cursor_shape = CURSOR_MOVE;
 		}
 
 		if (!read_only) {
@@ -1753,6 +1756,21 @@ void AnimationBezierTrackEdit::gui_input(const Ref<InputEvent> &p_event) {
 		// and the opposite end of the `selection_rect`.
 
 		if (scaling_selection_handles.x != 0) {
+			default_cursor_shape = CURSOR_HSIZE;
+		}
+		if (scaling_selection_handles.y != 0) {
+			default_cursor_shape = CURSOR_VSIZE;
+		}
+		if (scaling_selection_handles.x == 1 && scaling_selection_handles.y == 1 ||
+				scaling_selection_handles.x == -1 && scaling_selection_handles.y == -1) {
+			default_cursor_shape = CURSOR_FDIAGSIZE;
+		}
+		if (scaling_selection_handles.x == -1 && scaling_selection_handles.y == 1 ||
+				scaling_selection_handles.x == 1 && scaling_selection_handles.y == -1) {
+			default_cursor_shape = CURSOR_BDIAGSIZE;
+		}
+
+		if (scaling_selection_handles.x != 0) {
 			if (scaling_selection_handles.x == 1) { // Right Handle
 				const int handle_adjust = Math::round(mp.x - (scaling_selection_scale.x >= 0 ? selection_rect.position.x : (selection_rect.position.x + selection_rect.size.width)));
 				mp.x -= MIN(Math::abs(handle_adjust), handle_length) * scaling_selection_handles.x * SIGN(handle_adjust);
@@ -1801,7 +1819,6 @@ void AnimationBezierTrackEdit::gui_input(const Ref<InputEvent> &p_event) {
 				} else {
 					rel_pos.y = mp.y - selection_rect.position.y;
 				}
-
 				const float h = (get_size().height / 2.0 - mp.y) * timeline_v_zoom + timeline_v_scroll;
 				scaling_selection_offset.y = scaling_selection_pivot.y - h;
 			}
@@ -2313,4 +2330,8 @@ AnimationBezierTrackEdit::AnimationBezierTrackEdit() {
 	menu = memnew(PopupMenu);
 	add_child(menu);
 	menu->connect(SceneStringName(id_pressed), callable_mp(this, &AnimationBezierTrackEdit::_menu_selected));
+}
+
+Control::CursorShape AnimationBezierTrackEdit::get_cursor_shape(const Point2 &p_pos) const {
+	return default_cursor_shape;
 }

@@ -132,6 +132,8 @@ class AnimationBezierTrackEdit : public Control {
 	Vector2 scaling_selection_offset;
 	Point2 scaling_selection_pivot;
 
+	Control::CursorShape default_cursor_shape = CURSOR_ARROW;
+
 	int moving_handle = 0; //0 no move -1 or +1 out, 2 both (drawing only)
 	int moving_handle_key = 0;
 	int moving_handle_track = 0;
@@ -200,6 +202,7 @@ class AnimationBezierTrackEdit : public Control {
 	void _draw_track(int p_track, const Color &p_color);
 
 	float _bezier_h_to_pixel(float p_h);
+
 	void _zoom_vertically(real_t p_minimum_value, real_t p_maximum_value);
 
 protected:
@@ -212,6 +215,8 @@ public:
 	virtual String get_tooltip(const Point2 &p_pos) const override;
 
 	Ref<Animation> get_animation() const;
+
+	Control::CursorShape get_cursor_shape(const Point2 &p_pos) const;
 
 	void set_animation_and_track(const Ref<Animation> &p_animation, int p_track, bool p_read_only);
 	virtual Size2 get_minimum_size() const override;
