@@ -329,6 +329,9 @@ private:
 	MenuButton *snap_config_menu = nullptr;
 	PopupMenu *smartsnap_config_popup = nullptr;
 
+	Button *background_button = nullptr;
+	Button *background_settings = nullptr;
+
 	Button *lock_button = nullptr;
 	Button *unlock_button = nullptr;
 
@@ -586,6 +589,10 @@ public:
 	void center_at(const Point2 &p_pos);
 
 	virtual CursorShape get_cursor_shape(const Point2 &p_pos) const override;
+
+	void _update_preview_background();
+
+	void _background_settings_pressed();
 
 	ThemePreviewMode get_theme_preview() const { return theme_preview; }
 

@@ -2847,6 +2847,21 @@ void CanvasItemEditor::_update_lock_and_group_button() {
 	ungroup_button->set_disabled(!has_canvas_item);
 }
 
+void CanvasItemEditor::_update_preview_background() {
+	// TODO we need some functionality here
+	// OK let's figure out how we toggle this
+	// Let's just set the viewport to a random color for now and
+	// we'll figure out how to set it in the other function later
+
+	// this didn't seem to do anything.
+	RenderingServer::get_singleton()->set_default_clear_color(Color(1.0, 0.0, 0.0));
+	RenderingServer::get_singleton()->canvas_item_clear(viewport->get_viewport_rid());
+}
+
+void CanvasItemEditor::_background_settings_pressed() {
+	// TODO we need some functionality here
+}
+
 Control::CursorShape CanvasItemEditor::get_cursor_shape(const Point2 &p_pos) const {
 	// Compute an eventual rotation of the cursor
 	const CursorShape rotation_array[4] = { CURSOR_HSIZE, CURSOR_BDIAGSIZE, CURSOR_VSIZE, CURSOR_FDIAGSIZE };
@@ -4084,6 +4099,8 @@ void CanvasItemEditor::_update_editor_settings() {
 	smart_snap_button->set_button_icon(get_editor_theme_icon(SNAME("Snap")));
 	grid_snap_button->set_button_icon(get_editor_theme_icon(SNAME("SnapGrid")));
 	snap_config_menu->set_button_icon(get_editor_theme_icon(SNAME("GuiTabMenuHl")));
+	background_button->set_button_icon(get_editor_theme_icon(SNAME("Gradient")));
+	background_settings->set_button_icon(get_editor_theme_icon(SNAME("GuiTabMenuHl")));
 	skeleton_menu->set_button_icon(get_editor_theme_icon(SNAME("Bone")));
 	pan_button->set_button_icon(get_editor_theme_icon(SNAME("ToolPan")));
 	ruler_button->set_button_icon(get_editor_theme_icon(SNAME("Ruler")));
@@ -5517,6 +5534,25 @@ CanvasItemEditor::CanvasItemEditor() {
 
 	p->add_separator();
 	p->add_shortcut(ED_SHORTCUT("canvas_item_editor/configure_snap", TTRC("Configure Snap...")), SNAP_CONFIGURE);
+
+	main_menu_hbox->add_child(memnew(VSeparator));
+
+	// Add the two buttons here. One to toggle the override on and off and one Popup menu to choose the color (check what it looks like on the 3D side)
+
+	background_button = memnew(Button);
+	background_button->set_tooltip_text(TTR("Toggle Preview Background."));
+	background_button->set_toggle_mode(true);
+	background_button->set_theme_type_variation(SceneStringName(FlatButton));
+	background_button->connect(SceneStringName(pressed), callable_mp(this, &CanvasItemEditor::_update_preview_background), CONNECT_DEFERRED);
+
+	main_menu_hbox->add_child(background_button);
+
+	background_settings = memnew(Button);
+	background_settings->set_tooltip_text(TTR("Edit Preview Background Settings."));
+	background_settings->set_theme_type_variation(SceneStringName(FlatButton));
+	background_settings->connect(SceneStringName(pressed), callable_mp(this, &CanvasItemEditor::_background_settings_pressed));
+
+	main_menu_hbox->add_child(background_settings);
 
 	main_menu_hbox->add_child(memnew(VSeparator));
 
