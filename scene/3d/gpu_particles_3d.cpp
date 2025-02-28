@@ -71,6 +71,13 @@ void GPUParticles3D::set_emitting(bool p_emitting) {
 	RS::get_singleton()->particles_set_emitting(particles, p_emitting);
 }
 
+#ifdef TOOLS_ENABLED
+void GPUParticles3D::set_editor_paused(bool p_pause) {
+	editor_paused = p_pause;
+	set_speed_scale(speed_scale);
+}
+#endif
+
 void GPUParticles3D::set_amount(int p_amount) {
 	ERR_FAIL_COND_MSG(p_amount < 1, "Amount of particles cannot be smaller than 1.");
 	amount = p_amount;
@@ -172,7 +179,15 @@ void GPUParticles3D::set_process_material(const Ref<Material> &p_material) {
 
 void GPUParticles3D::set_speed_scale(double p_scale) {
 	speed_scale = p_scale;
+#ifdef TOOLS_ENABLED
+	if (editor_paused) {
+		RS::get_singleton()->particles_set_speed_scale(particles, 0.0);
+	} else {
+		RS::get_singleton()->particles_set_speed_scale(particles, p_scale);
+	}
+#else
 	RS::get_singleton()->particles_set_speed_scale(particles, p_scale);
+#endif
 }
 
 void GPUParticles3D::set_collision_base_size(real_t p_size) {

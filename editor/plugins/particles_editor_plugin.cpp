@@ -36,7 +36,9 @@
 #include "editor/editor_settings.h"
 #include "editor/editor_undo_redo_manager.h"
 #include "editor/gui/editor_file_dialog.h"
+#include "editor/gui/editor_spin_slider.h"
 #include "editor/scene_tree_dock.h"
+#include "editor/themes/editor_scale.h"
 #include "scene/2d/cpu_particles_2d.h"
 #include "scene/2d/gpu_particles_2d.h"
 #include "scene/3d/cpu_particles_3d.h"
@@ -66,6 +68,12 @@ void ParticlesEditorPlugin::_notification(int p_what) {
 			popup->add_shortcut(ED_SHORTCUT("particles/restart_emission", TTRC("Restart Emission"), KeyModifierMask::CTRL | Key::R), MENU_RESTART);
 			_add_menu_options(popup);
 			popup->add_item(conversion_option_name, MENU_OPTION_CONVERT);
+			play_button->set_flat(true);
+			play_button->set_button_icon(play_button->get_editor_theme_icon(SNAME("Play")));
+			pause_button->set_flat(true);
+			pause_button->set_button_icon(pause_button->get_editor_theme_icon(SNAME("Pause")));
+			restart_button->set_flat(true);
+			restart_button->set_button_icon(restart_button->get_editor_theme_icon(SNAME("Reload")));
 		} break;
 	}
 }
@@ -100,6 +108,19 @@ void ParticlesEditorPlugin::_menu_callback(int p_idx) {
 	}
 }
 
+void ParticlesEditorPlugin::_play_pressed() {
+	Object::cast_to<GPUParticles3D>(edited_node)->set_editor_paused(false);
+}
+
+void ParticlesEditorPlugin::_pause_pressed() {
+	Object::cast_to<GPUParticles3D>(edited_node)->set_editor_paused(true);
+}
+
+void ParticlesEditorPlugin::_particle_seek(real_t p_time) {
+	Object::cast_to<GPUParticles3D>(edited_node)->restart();
+	Object::cast_to<GPUParticles3D>(edited_node)->request_particles_process(p_time);
+}
+
 void ParticlesEditorPlugin::edit(Object *p_object) {
 	edited_node = Object::cast_to<Node>(p_object);
 }
@@ -120,6 +141,28 @@ ParticlesEditorPlugin::ParticlesEditorPlugin() {
 	menu->set_switch_on_hover(true);
 	toolbar->add_child(menu);
 	menu->get_popup()->connect(SceneStringName(id_pressed), callable_mp(this, &ParticlesEditorPlugin::_menu_callback));
+	play_button = memnew(Button);
+	play_button->connect(SceneStringName(pressed), callable_mp(this, &ParticlesEditorPlugin::_play_pressed));
+	toolbar->add_child(play_button);
+	pause_button = memnew(Button);
+	pause_button->connect(SceneStringName(pressed), callable_mp(this, &ParticlesEditorPlugin::_pause_pressed));
+	toolbar->add_child(pause_button);
+	restart_button = memnew(Button);
+	toolbar->add_child(restart_button);
+	seek_label = memnew(Label);
+	seek_label->set_text(TTR("Seek:"));
+	toolbar->add_child(seek_label);
+	seek_field = memnew(EditorSpinSlider);
+	seek_field->set_min(0.0);
+	seek_field->set_max(100);
+	seek_field->set_step(0.0001);
+	seek_field->set_value(0.0);
+	seek_field->set_custom_minimum_size(Vector2(70 * EDSCALE, 0));
+	seek_field->set_allow_greater(true);
+	seek_field->set_hide_slider(true);
+	//seek_field->set_tooltip_text(TTR("do we want a tooltip?"));
+	seek_field->connect(SceneStringName(value_changed), callable_mp(this, &ParticlesEditorPlugin::_particle_seek));
+	toolbar->add_child(seek_field);
 }
 
 // 2D /////////////////////////////////////////////

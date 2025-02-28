@@ -100,6 +100,10 @@ private:
 	Vector3 previous_velocity;
 	Vector3 previous_position;
 
+#ifdef TOOLS_ENABLED
+	bool editor_paused = false;
+#endif
+
 	void _attach_sub_emitter();
 
 	void _skinning_changed();
@@ -132,6 +136,9 @@ public:
 	void set_trail_enabled(bool p_enabled);
 	void set_trail_lifetime(double p_seconds);
 	void set_interp_to_end(float p_interp);
+#ifdef TOOLS_ENABLED
+	void set_editor_paused(bool p_pause);
+#endif
 
 	bool is_emitting() const;
 	int get_amount() const;

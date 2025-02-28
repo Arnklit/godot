@@ -42,6 +42,7 @@ class MenuButton;
 class OptionButton;
 class SceneTreeDialog;
 class SpinBox;
+class EditorSpinSlider;
 
 class ParticlesEditorPlugin : public EditorPlugin {
 	GDCLASS(ParticlesEditorPlugin, EditorPlugin);
@@ -54,6 +55,11 @@ private:
 
 	HBoxContainer *toolbar = nullptr;
 	MenuButton *menu = nullptr;
+	Button *play_button = nullptr;
+	Button *pause_button = nullptr;
+	Button *restart_button = nullptr;
+	Label *seek_label = nullptr;
+	EditorSpinSlider *seek_field = nullptr;
 
 protected:
 	String handled_type;
@@ -65,6 +71,10 @@ protected:
 
 	bool need_show_lifetime_dialog(SpinBox *p_seconds);
 	virtual void _menu_callback(int p_idx);
+
+	void _play_pressed();
+	void _pause_pressed();
+	void _particle_seek(real_t p_time);
 
 	virtual void _add_menu_options(PopupMenu *p_menu) {}
 	virtual Node *_convert_particles() = 0;
