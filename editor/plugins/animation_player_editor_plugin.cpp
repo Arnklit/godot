@@ -2307,6 +2307,10 @@ void AnimationPlayerEditorPlugin::edit(Object *p_object) {
 	if (player && anim_editor && anim_editor->is_pinned()) {
 		return; // Ignore, pinned.
 	}
+	if (anim_editor->player && p_object == anim_editor->player) {
+		anim_editor->track_editor->show_select_node_warning(false);
+		return; // Ignore, it's the same player that's already active.
+	}
 
 	player = nullptr;
 	if (!p_object) {
