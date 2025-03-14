@@ -264,12 +264,12 @@ private:
 
 	Error _load_from_buffer(const Vector<uint8_t> &p_array, ImageMemLoadFunc p_loader);
 
-	_FORCE_INLINE_ void _generate_mipmap_from_format(Image::Format p_format, const uint8_t *p_src, uint8_t *p_dst, uint32_t p_width, uint32_t p_height, bool p_renormalize = false);
+	_FORCE_INLINE_ void _generate_mipmap_from_format(Image::Format p_format, const uint8_t *p_src, uint8_t *p_dst, uint32_t p_width, uint32_t p_height, bool p_renormalize = false, bool p_preserve_alpha_test_coverage = false);
 
-	static void average_4_uint8(uint8_t &p_out, const uint8_t &p_a, const uint8_t &p_b, const uint8_t &p_c, const uint8_t &p_d);
-	static void average_4_float(float &p_out, const float &p_a, const float &p_b, const float &p_c, const float &p_d);
-	static void average_4_half(uint16_t &p_out, const uint16_t &p_a, const uint16_t &p_b, const uint16_t &p_c, const uint16_t &p_d);
-	static void average_4_rgbe9995(uint32_t &p_out, const uint32_t &p_a, const uint32_t &p_b, const uint32_t &p_c, const uint32_t &p_d);
+	static void average_4_uint8(uint8_t &p_out, const uint8_t &p_a, const uint8_t &p_b, const uint8_t &p_c, const uint8_t &p_d, bool p_alpha_channel = false);
+	static void average_4_float(float &p_out, const float &p_a, const float &p_b, const float &p_c, const float &p_d, bool p_alpha_channel = false);
+	static void average_4_half(uint16_t &p_out, const uint16_t &p_a, const uint16_t &p_b, const uint16_t &p_c, const uint16_t &p_d, bool p_alpha_channel = false);
+	static void average_4_rgbe9995(uint32_t &p_out, const uint32_t &p_a, const uint32_t &p_b, const uint32_t &p_c, const uint32_t &p_d, bool p_alpha_channel = false);
 	static void renormalize_uint8(uint8_t *p_rgb);
 	static void renormalize_float(float *p_rgb);
 	static void renormalize_half(uint16_t *p_rgb);
@@ -312,7 +312,7 @@ public:
 	void flip_y();
 
 	// Generate a mipmap chain of an image (creates an image 1/4 the size, with averaging of 4->1).
-	Error generate_mipmaps(bool p_renormalize = false);
+	Error generate_mipmaps(bool p_renormalize = false, bool p_preserve_alpha_test_coverage = false);
 
 	Error generate_mipmap_roughness(RoughnessChannel p_roughness_channel, const Ref<Image> &p_normal_map);
 

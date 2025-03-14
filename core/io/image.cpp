@@ -1793,8 +1793,8 @@ bool Image::_can_modify(Format p_format) const {
 	return !Image::is_format_compressed(p_format);
 }
 
-template <typename Component, int CC, bool renormalize,
-		void (*average_func)(Component &, const Component &, const Component &, const Component &, const Component &),
+template <typename Component, int CC, bool renormalize, bool preserve_alpha_test_coverage,
+		void (*average_func)(Component &, const Component &, const Component &, const Component &, const Component &, bool),
 		void (*renormalize_func)(Component *)>
 static void _generate_po2_mipmap(const Component *p_src, Component *p_dst, uint32_t p_width, uint32_t p_height) {
 	// Fast power of 2 mipmap generation.
@@ -1813,7 +1813,7 @@ static void _generate_po2_mipmap(const Component *p_src, Component *p_dst, uint3
 		while (count) {
 			count--;
 			for (int j = 0; j < CC; j++) {
-				average_func(dst_ptr[j], rup_ptr[j], rup_ptr[j + right_step], rdown_ptr[j], rdown_ptr[j + right_step]);
+				average_func(dst_ptr[j], rup_ptr[j], rup_ptr[j + right_step], rdown_ptr[j], rdown_ptr[j + right_step], j == 3 && preserve_alpha_test_coverage);
 			}
 
 			if (renormalize) {
@@ -1827,7 +1827,7 @@ static void _generate_po2_mipmap(const Component *p_src, Component *p_dst, uint3
 	}
 }
 
-void Image::_generate_mipmap_from_format(Image::Format p_format, const uint8_t *p_src, uint8_t *p_dst, uint32_t p_width, uint32_t p_height, bool p_renormalize) {
+void Image::_generate_mipmap_from_format(Image::Format p_format, const uint8_t *p_src, uint8_t *p_dst, uint32_t p_width, uint32_t p_height, bool p_renormalize, bool p_preserve_alpha_test_coverage) {
 	const float *src_float = reinterpret_cast<const float *>(p_src);
 	float *dst_float = reinterpret_cast<float *>(p_dst);
 
@@ -1840,70 +1840,82 @@ void Image::_generate_mipmap_from_format(Image::Format p_format, const uint8_t *
 	switch (p_format) {
 		case Image::FORMAT_L8:
 		case Image::FORMAT_R8:
-			_generate_po2_mipmap<uint8_t, 1, false, Image::average_4_uint8, Image::renormalize_uint8>(p_src, p_dst, p_width, p_height);
+			_generate_po2_mipmap<uint8_t, 1, false, false, Image::average_4_uint8, Image::renormalize_uint8>(p_src, p_dst, p_width, p_height);
 			break;
 		case Image::FORMAT_LA8:
-			_generate_po2_mipmap<uint8_t, 2, false, Image::average_4_uint8, Image::renormalize_uint8>(p_src, p_dst, p_width, p_height);
+			if (p_preserve_alpha_test_coverage) {
+				_generate_po2_mipmap<uint8_t, 2, false, true, Image::average_4_uint8, Image::renormalize_uint8>(p_src, p_dst, p_width, p_height);
+			} else {
+				_generate_po2_mipmap<uint8_t, 2, false, false, Image::average_4_uint8, Image::renormalize_uint8>(p_src, p_dst, p_width, p_height);
+			}
 			break;
 		case Image::FORMAT_RG8:
-			_generate_po2_mipmap<uint8_t, 2, false, Image::average_4_uint8, Image::renormalize_uint8>(p_src, p_dst, p_width, p_height);
+			_generate_po2_mipmap<uint8_t, 2, false, false, Image::average_4_uint8, Image::renormalize_uint8>(p_src, p_dst, p_width, p_height);
 			break;
 		case Image::FORMAT_RGB8: {
 			if (p_renormalize) {
-				_generate_po2_mipmap<uint8_t, 3, true, Image::average_4_uint8, Image::renormalize_uint8>(p_src, p_dst, p_width, p_height);
+				_generate_po2_mipmap<uint8_t, 3, true, false, Image::average_4_uint8, Image::renormalize_uint8>(p_src, p_dst, p_width, p_height);
 			} else {
-				_generate_po2_mipmap<uint8_t, 3, false, Image::average_4_uint8, Image::renormalize_uint8>(p_src, p_dst, p_width, p_height);
+				_generate_po2_mipmap<uint8_t, 3, false, false, Image::average_4_uint8, Image::renormalize_uint8>(p_src, p_dst, p_width, p_height);
 			}
 		} break;
 		case Image::FORMAT_RGBA8: {
 			if (p_renormalize) {
-				_generate_po2_mipmap<uint8_t, 4, true, Image::average_4_uint8, Image::renormalize_uint8>(p_src, p_dst, p_width, p_height);
+				if (p_preserve_alpha_test_coverage) {
+					_generate_po2_mipmap<uint8_t, 4, true, true, Image::average_4_uint8, Image::renormalize_uint8>(p_src, p_dst, p_width, p_height);
+				} else {
+					_generate_po2_mipmap<uint8_t, 4, true, false, Image::average_4_uint8, Image::renormalize_uint8>(p_src, p_dst, p_width, p_height);
+				}
 			} else {
-				_generate_po2_mipmap<uint8_t, 4, false, Image::average_4_uint8, Image::renormalize_uint8>(p_src, p_dst, p_width, p_height);
+				if (p_preserve_alpha_test_coverage) {
+					_generate_po2_mipmap<uint8_t, 4, false, true, Image::average_4_uint8, Image::renormalize_uint8>(p_src, p_dst, p_width, p_height);
+				} else {
+					_generate_po2_mipmap<uint8_t, 4, false, false, Image::average_4_uint8, Image::renormalize_uint8>(p_src, p_dst, p_width, p_height);
+				}
 			}
 		} break;
 		case Image::FORMAT_RF:
-			_generate_po2_mipmap<float, 1, false, Image::average_4_float, Image::renormalize_float>(src_float, dst_float, p_width, p_height);
+			_generate_po2_mipmap<float, 1, false, false, Image::average_4_float, Image::renormalize_float>(src_float, dst_float, p_width, p_height);
 			break;
 		case Image::FORMAT_RGF:
-			_generate_po2_mipmap<float, 2, false, Image::average_4_float, Image::renormalize_float>(src_float, dst_float, p_width, p_height);
+			_generate_po2_mipmap<float, 2, false, false, Image::average_4_float, Image::renormalize_float>(src_float, dst_float, p_width, p_height);
 			break;
 		case Image::FORMAT_RGBF: {
 			if (p_renormalize) {
-				_generate_po2_mipmap<float, 3, true, Image::average_4_float, Image::renormalize_float>(src_float, dst_float, p_width, p_height);
+				_generate_po2_mipmap<float, 3, true, false, Image::average_4_float, Image::renormalize_float>(src_float, dst_float, p_width, p_height);
 			} else {
-				_generate_po2_mipmap<float, 3, false, Image::average_4_float, Image::renormalize_float>(src_float, dst_float, p_width, p_height);
+				_generate_po2_mipmap<float, 3, false, false, Image::average_4_float, Image::renormalize_float>(src_float, dst_float, p_width, p_height);
 			}
 		} break;
 		case Image::FORMAT_RGBAF: {
 			if (p_renormalize) {
-				_generate_po2_mipmap<float, 4, true, Image::average_4_float, Image::renormalize_float>(src_float, dst_float, p_width, p_height);
+				_generate_po2_mipmap<float, 4, true, false, Image::average_4_float, Image::renormalize_float>(src_float, dst_float, p_width, p_height);
 			} else {
-				_generate_po2_mipmap<float, 4, false, Image::average_4_float, Image::renormalize_float>(src_float, dst_float, p_width, p_height);
+				_generate_po2_mipmap<float, 4, false, false, Image::average_4_float, Image::renormalize_float>(src_float, dst_float, p_width, p_height);
 			}
 		} break;
 		case Image::FORMAT_RH:
-			_generate_po2_mipmap<uint16_t, 1, false, Image::average_4_half, Image::renormalize_half>(src_u16, dst_u16, p_width, p_height);
+			_generate_po2_mipmap<uint16_t, 1, false, false, Image::average_4_half, Image::renormalize_half>(src_u16, dst_u16, p_width, p_height);
 			break;
 		case Image::FORMAT_RGH:
-			_generate_po2_mipmap<uint16_t, 2, false, Image::average_4_half, Image::renormalize_half>(src_u16, dst_u16, p_width, p_height);
+			_generate_po2_mipmap<uint16_t, 2, false, false, Image::average_4_half, Image::renormalize_half>(src_u16, dst_u16, p_width, p_height);
 			break;
 		case Image::FORMAT_RGBH: {
 			if (p_renormalize) {
-				_generate_po2_mipmap<uint16_t, 3, true, Image::average_4_half, Image::renormalize_half>(src_u16, dst_u16, p_width, p_height);
+				_generate_po2_mipmap<uint16_t, 3, true, false, Image::average_4_half, Image::renormalize_half>(src_u16, dst_u16, p_width, p_height);
 			} else {
-				_generate_po2_mipmap<uint16_t, 3, false, Image::average_4_half, Image::renormalize_half>(src_u16, dst_u16, p_width, p_height);
+				_generate_po2_mipmap<uint16_t, 3, false, false, Image::average_4_half, Image::renormalize_half>(src_u16, dst_u16, p_width, p_height);
 			}
 		} break;
 		case Image::FORMAT_RGBAH: {
 			if (p_renormalize) {
-				_generate_po2_mipmap<uint16_t, 4, true, Image::average_4_half, Image::renormalize_half>(src_u16, dst_u16, p_width, p_height);
+				_generate_po2_mipmap<uint16_t, 4, true, false, Image::average_4_half, Image::renormalize_half>(src_u16, dst_u16, p_width, p_height);
 			} else {
-				_generate_po2_mipmap<uint16_t, 4, false, Image::average_4_half, Image::renormalize_half>(src_u16, dst_u16, p_width, p_height);
+				_generate_po2_mipmap<uint16_t, 4, false, false, Image::average_4_half, Image::renormalize_half>(src_u16, dst_u16, p_width, p_height);
 			}
 		} break;
 		case Image::FORMAT_RGBE9995:
-			_generate_po2_mipmap<uint32_t, 1, false, Image::average_4_rgbe9995, Image::renormalize_rgbe9995>(src_u32, dst_u32, p_width, p_height);
+			_generate_po2_mipmap<uint32_t, 1, false, false, Image::average_4_rgbe9995, Image::renormalize_rgbe9995>(src_u32, dst_u32, p_width, p_height);
 			break;
 
 		default:
@@ -1962,7 +1974,7 @@ void Image::normalize() {
 	}
 }
 
-Error Image::generate_mipmaps(bool p_renormalize) {
+Error Image::generate_mipmaps(bool p_renormalize, bool p_preserve_alpha_test_coverage) {
 	ERR_FAIL_COND_V_MSG(!_can_modify(format), ERR_UNAVAILABLE, "Cannot generate mipmaps in compressed or custom image formats.");
 	ERR_FAIL_COND_V_MSG(format == FORMAT_RGBA4444, ERR_UNAVAILABLE, "Cannot generate mipmaps from RGBA4444 format.");
 	ERR_FAIL_COND_V_MSG(width == 0 || height == 0, ERR_UNCONFIGURED, "Cannot generate mipmaps with width or height equal to 0.");
@@ -1982,7 +1994,7 @@ Error Image::generate_mipmaps(bool p_renormalize) {
 		int w, h;
 		_get_mipmap_offset_and_size(i, ofs, w, h);
 
-		_generate_mipmap_from_format(format, wp + prev_ofs, wp + ofs, prev_w, prev_h, p_renormalize);
+		_generate_mipmap_from_format(format, wp + prev_ofs, wp + ofs, prev_w, prev_h, p_renormalize, p_preserve_alpha_test_coverage);
 
 		prev_ofs = ofs;
 		prev_w = w;
@@ -4157,19 +4169,27 @@ Error Image::_load_from_buffer(const Vector<uint8_t> &p_array, ImageMemLoadFunc 
 	return OK;
 }
 
-void Image::average_4_uint8(uint8_t &p_out, const uint8_t &p_a, const uint8_t &p_b, const uint8_t &p_c, const uint8_t &p_d) {
-	p_out = static_cast<uint8_t>((p_a + p_b + p_c + p_d + 2) >> 2);
+void Image::average_4_uint8(uint8_t &p_out, const uint8_t &p_a, const uint8_t &p_b, const uint8_t &p_c, const uint8_t &p_d, bool p_preserve_alpha_test_coverage) {
+	// Compute standard average
+	uint32_t avg_alpha = (p_a + p_b + p_c + p_d + 2) >> 2;
+	if (p_preserve_alpha_test_coverage) {
+		// Preserve alpha coverage by adjusting based on max alpha
+		uint8_t max_alpha = MAX(MAX(p_a, p_b), MAX(p_c, p_d));
+		p_out = MAX(avg_alpha, (max_alpha * 3 + avg_alpha) >> 2); // Blend of max and avg for better coverage
+	} else {
+		p_out = avg_alpha;
+	}
 }
 
-void Image::average_4_float(float &p_out, const float &p_a, const float &p_b, const float &p_c, const float &p_d) {
+void Image::average_4_float(float &p_out, const float &p_a, const float &p_b, const float &p_c, const float &p_d, bool p_alpha_channel) {
 	p_out = (p_a + p_b + p_c + p_d) * 0.25f;
 }
 
-void Image::average_4_half(uint16_t &p_out, const uint16_t &p_a, const uint16_t &p_b, const uint16_t &p_c, const uint16_t &p_d) {
+void Image::average_4_half(uint16_t &p_out, const uint16_t &p_a, const uint16_t &p_b, const uint16_t &p_c, const uint16_t &p_d, bool p_alpha_channel) {
 	p_out = Math::make_half_float((Math::half_to_float(p_a) + Math::half_to_float(p_b) + Math::half_to_float(p_c) + Math::half_to_float(p_d)) * 0.25f);
 }
 
-void Image::average_4_rgbe9995(uint32_t &p_out, const uint32_t &p_a, const uint32_t &p_b, const uint32_t &p_c, const uint32_t &p_d) {
+void Image::average_4_rgbe9995(uint32_t &p_out, const uint32_t &p_a, const uint32_t &p_b, const uint32_t &p_c, const uint32_t &p_d, bool p_alpha_channel) {
 	p_out = ((Color::from_rgbe9995(p_a) + Color::from_rgbe9995(p_b) + Color::from_rgbe9995(p_c) + Color::from_rgbe9995(p_d)) * 0.25f).to_rgbe9995();
 }
 
