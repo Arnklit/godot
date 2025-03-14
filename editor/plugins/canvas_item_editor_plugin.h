@@ -323,6 +323,8 @@ private:
 
 	Button *ruler_button = nullptr;
 
+	Button *local_space_mode_button = nullptr;
+
 	Button *smart_snap_button = nullptr;
 	Button *grid_snap_button = nullptr;
 	MenuButton *snap_config_menu = nullptr;

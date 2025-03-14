@@ -4081,6 +4081,7 @@ void CanvasItemEditor::_update_editor_settings() {
 	move_button->set_button_icon(get_editor_theme_icon(SNAME("ToolMove")));
 	scale_button->set_button_icon(get_editor_theme_icon(SNAME("ToolScale")));
 	rotate_button->set_button_icon(get_editor_theme_icon(SNAME("ToolRotate")));
+	local_space_mode_button->set_button_icon(get_editor_theme_icon(SNAME("Object")));
 	smart_snap_button->set_button_icon(get_editor_theme_icon(SNAME("Snap")));
 	grid_snap_button->set_button_icon(get_editor_theme_icon(SNAME("SnapGrid")));
 	snap_config_menu->set_button_icon(get_editor_theme_icon(SNAME("GuiTabMenuHl")));
@@ -5468,6 +5469,15 @@ CanvasItemEditor::CanvasItemEditor() {
 	ruler_button->set_tooltip_text(TTRC("Ruler Mode"));
 
 	main_menu_hbox->add_child(memnew(VSeparator));
+
+	local_space_mode_button = memnew(Button);
+	local_space_mode_button->set_theme_type_variation(SceneStringName(FlatButton));
+	main_menu_hbox->add_child(local_space_mode_button);
+	local_space_mode_button->set_toggle_mode(true);
+	//loval_space_mode_button->connect(SceneStringName(toggled), callable_mp(this, &CanvasItemEditor::_button_toggle_transform_mode));
+	local_space_mode_button->set_tooltip_text(TTRC("Toggle between local and global transform mode."));
+	// TODO ??? Add a shortcut?
+	local_space_mode_button->set_shortcut_context(this);
 
 	smart_snap_button = memnew(Button);
 	smart_snap_button->set_theme_type_variation(SceneStringName(FlatButton));
