@@ -3799,6 +3799,32 @@ AnimationTrackEditGroup::AnimationTrackEditGroup() {
 
 //////////////////////////////////////
 
+Control::CursorShape AnimationTrackEdit::get_cursor_shape(const Point2 &p_pos) const {
+	// The reason this is not currently working is that these mouse positions are in the local trackedit / group
+	// whereas the scale rect is in the space of scroll window. not sure why I don't have a view I can call on that instead
+
+	return get_default_cursor_shape();
+
+	Rect2 scale_rect = editor->get_scale_control()->get_rect();
+	Rect2 left_edge = Rect2(scale_rect.position, Vector2(8, scale_rect.size.y));
+	Rect2 right_edge = Rect2(scale_rect.position + Vector2(scale_rect.size.x - 8, 0), Vector2(8, scale_rect.size.y));
+
+	if (scale_rect.has_point(p_pos)) {
+		return Control::CURSOR_HSIZE;
+	}
+}
+
+Control::CursorShape AnimationTrackEditGroup::get_cursor_shape(const Point2 &p_pos) const {
+	return get_default_cursor_shape();
+	Rect2 scale_rect = editor->get_scale_control()->get_rect();
+	Rect2 left_edge = Rect2(scale_rect.position, Vector2(8, scale_rect.size.y));
+	Rect2 right_edge = Rect2(scale_rect.position + Vector2(scale_rect.size.x - 8, 0), Vector2(8, scale_rect.size.y));
+
+	if (scale_rect.has_point(p_pos)) {
+		return Control::CURSOR_HSIZE;
+	}
+}
+
 void AnimationTrackEditor::add_track_edit_plugin(const Ref<AnimationTrackEditPlugin> &p_plugin) {
 	if (track_edit_plugins.has(p_plugin)) {
 		return;
@@ -3891,6 +3917,10 @@ void AnimationTrackEditor::_check_bezier_exist() {
 
 Ref<Animation> AnimationTrackEditor::get_current_animation() const {
 	return animation;
+}
+
+Control *AnimationTrackEditor::get_scale_control() const {
+	return scale_control;
 }
 
 void AnimationTrackEditor::_root_removed() {
@@ -3990,10 +4020,19 @@ void AnimationTrackEditor::cleanup() {
 
 void AnimationTrackEditor::_name_limit_changed() {
 	_redraw_tracks();
+	if (selection.size() > 1) {
+		_update_scale_control();
+	}
 }
 
 void AnimationTrackEditor::_timeline_changed(float p_new_pos, bool p_timeline_only) {
 	emit_signal(SNAME("timeline_changed"), p_new_pos, p_timeline_only, false);
+}
+
+void AnimationTrackEditor::_zoom_changed() {
+	if (selection.size() > 1) {
+		_update_scale_control();
+	}
 }
 
 void AnimationTrackEditor::_track_remove_request(int p_track) {
@@ -5792,6 +5831,7 @@ void AnimationTrackEditor::_clear_key_edit() {
 
 void AnimationTrackEditor::_clear_selection(bool p_update) {
 	selection.clear();
+	scale_control->hide();
 
 	if (p_update) {
 		_redraw_tracks();
@@ -5802,6 +5842,7 @@ void AnimationTrackEditor::_clear_selection(bool p_update) {
 
 void AnimationTrackEditor::_update_key_edit() {
 	_clear_key_edit();
+	scale_control->hide();
 	if (animation.is_null()) {
 		return;
 	}
@@ -5861,8 +5902,39 @@ void AnimationTrackEditor::_update_key_edit() {
 		multi_key_edit->use_fps = timeline->is_using_fps();
 		multi_key_edit->root_path = root;
 
+		_update_scale_control();
+		scale_control->show();
+
 		EditorNode::get_singleton()->push_item(multi_key_edit);
 	}
+}
+
+void AnimationTrackEditor::_update_scale_control() {
+	// We need to not show the scale control if the multi select's time values are all the same. since you can't scale that.
+
+	Rect2 bounds = Rect2();
+	bool first_key = true;
+
+	for (const KeyValue<SelectedKey, KeyInfo> &E : selection) {
+		int track = E.key.track;
+		int key_id = E.key.key;
+		Rect2 key_rect = track_edits[track]->get_key_rect(key_id, timeline->get_zoom_scale());
+		key_rect.position.x += key_rect.size.width / 2;
+		key_rect.size.width = 0;
+		float offset = animation->track_get_key_time(track, key_id) - timeline->get_value();
+		offset = offset * timeline->get_zoom_scale() + timeline->get_name_limit();
+		key_rect.position.x += offset;
+		key_rect.position.y = track_edits[track]->get_global_position().y - scroll->get_global_position().y;
+
+		if (first_key) {
+			bounds = key_rect;
+			first_key = false;
+		} else {
+			bounds = bounds.merge(key_rect);
+		}
+	}
+
+	scale_control->set_rect(bounds);
 }
 
 void AnimationTrackEditor::_clear_selection_for_anim(const Ref<Animation> &p_anim) {
@@ -5996,6 +6068,11 @@ void AnimationTrackEditor::_box_selection_draw() {
 	box_selection->draw_rect(selection_rect, get_theme_color(SNAME("box_selection_stroke_color"), EditorStringName(Editor)), false, Math::round(EDSCALE));
 }
 
+void AnimationTrackEditor::_scale_control_draw() {
+	const Rect2 scale_rect = Rect2(Point2(), scale_control->get_size());
+	scale_control->draw_rect(scale_rect, get_theme_color(SNAME("box_selection_stroke_color"), EditorStringName(Editor)), false, Math::round(EDSCALE));
+}
+
 void AnimationTrackEditor::_scroll_input(const Ref<InputEvent> &p_event) {
 	if (!box_selecting) {
 		if (panner->gui_input(p_event, scroll->get_global_rect())) {
@@ -6008,6 +6085,32 @@ void AnimationTrackEditor::_scroll_input(const Ref<InputEvent> &p_event) {
 
 	if (mb.is_valid() && mb->get_button_index() == MouseButton::LEFT) {
 		if (mb->is_pressed()) {
+			// is is_visible_in_tree the right thing here?
+			if (scale_control->is_visible_in_tree()) {
+				Rect2 scale_rect = scale_control->get_rect();
+				Rect2 left_edge = Rect2(scale_rect.position, Vector2(8, scale_rect.size.y));
+				Rect2 right_edge = Rect2(scale_rect.position + Vector2(scale_rect.size.x - 8, 0), Vector2(8, scale_rect.size.y));
+
+				if (left_edge.has_point(mb->get_position())) {
+					is_scaling_left = true;
+					scale_drag_start_pos = mb->get_position().x;
+					scale_origin = scale_control->get_end().x;
+				} else if (right_edge.has_point(mb->get_position())) {
+					is_scaling_right = true;
+					scale_drag_start_pos = mb->get_position().x;
+					scale_origin = scale_control->get_begin().x;
+				}
+				if (is_scaling_left || is_scaling_right) {
+					original_scale_times.clear();
+					for (const KeyValue<SelectedKey, KeyInfo> &E : selection) {
+						int track = E.key.track;
+						int key_id = E.key.key;
+						original_scale_times.append(animation->track_get_key_time(track, key_id));
+					}
+					return;
+				}
+			}
+
 			box_selecting = true;
 			box_selecting_from = scroll->get_global_transform().xform(mb->get_position());
 			box_select_rect = Rect2();
@@ -6026,13 +6129,37 @@ void AnimationTrackEditor::_scroll_input(const Ref<InputEvent> &p_event) {
 			} else if (!mb->is_command_or_control_pressed() && !mb->is_shift_pressed()) {
 				_clear_selection(true); // Clear it.
 			}
-
 			box_selection->hide();
 			box_selecting = false;
+		} else if (is_scaling_right || is_scaling_left) {
+			is_scaling_right = false;
+			is_scaling_left = false;
 		}
 	}
 
 	Ref<InputEventMouseMotion> mm = p_event;
+
+	if (mm.is_valid() && (is_scaling_left || is_scaling_right)) {
+		float drag_offset = mm->get_position().x - scale_drag_start_pos;
+
+		float scale_origin_time = ((scale_origin - timeline->get_name_limit()) / timeline->get_zoom_scale()) + timeline->get_value();
+		float scale_drag_start_time = ((scale_drag_start_pos - timeline->get_name_limit()) / timeline->get_zoom_scale()) + timeline->get_value();
+		float scale_drag_end_time = ((mm->get_position().x - timeline->get_name_limit()) / timeline->get_zoom_scale()) + timeline->get_value();
+		float scale_amount = (scale_drag_end_time - scale_origin_time) / (scale_drag_start_time - scale_origin_time);
+
+		int idx = 0;
+		for (const KeyValue<SelectedKey, KeyInfo> &E : selection) {
+			int track = E.key.track;
+			int key_id = E.key.key;
+			float new_time = (original_scale_times[idx] - scale_origin_time) * scale_amount + scale_origin_time;
+			animation->track_set_key_time(track, key_id, new_time);
+			idx++;
+			//_redraw_tracks();
+			track_edits[track]->queue_redraw();
+		}
+		_update_scale_control();
+		return;
+	}
 
 	if (mm.is_valid() && box_selecting) {
 		if (!mm->get_button_mask().has_flag(MouseButtonMask::LEFT)) {
@@ -6083,9 +6210,10 @@ void AnimationTrackEditor::_toggle_bezier_edit() {
 }
 
 void AnimationTrackEditor::_scroll_changed(const Vector2 &p_val) {
+	// There is a bug it seems. _h_scroll_changed is never called. This is some bs ...
+	// I'll look into fixing this later or seeing how it's handled on the bezier side
+	const Vector2 scroll_difference = p_val - prev_scroll_position;
 	if (box_selecting) {
-		const Vector2 scroll_difference = p_val - prev_scroll_position;
-
 		Vector2 from = box_selecting_from - scroll_difference;
 		Vector2 to = box_selecting_to;
 
@@ -6103,7 +6231,8 @@ void AnimationTrackEditor::_scroll_changed(const Vector2 &p_val) {
 		box_selection->set_rect(Rect2(from - scroll->get_global_position(), rect.get_size()));
 		box_select_rect = rect;
 	}
-
+	Rect2 offset_scale_rect = Rect2(scale_control->get_rect().position - scroll_difference, scale_control->get_rect().size);
+	scale_control->set_rect(offset_scale_rect);
 	prev_scroll_position = p_val;
 }
 
@@ -7400,6 +7529,9 @@ void AnimationTrackEditor::_toggle_function_names() {
 
 void AnimationTrackEditor::_view_group_toggle() {
 	_update_tracks();
+	if (selection.size() > 1) {
+		callable_mp(this, &AnimationTrackEditor::_update_scale_control).call_deferred();
+	}
 	view_group->set_button_icon(get_editor_theme_icon(view_group->is_pressed() ? SNAME("AnimationTrackList") : SNAME("AnimationTrackGroup")));
 	bezier_edit->set_filtered(selected_filter->is_pressed());
 }
@@ -7618,6 +7750,7 @@ AnimationTrackEditor::AnimationTrackEditor() {
 	timeline->connect("track_added", callable_mp(this, &AnimationTrackEditor::_add_track));
 	timeline->connect(SceneStringName(value_changed), callable_mp(this, &AnimationTrackEditor::_timeline_value_changed));
 	timeline->connect("length_changed", callable_mp(this, &AnimationTrackEditor::_update_length));
+	timeline->connect("zoom_changed", callable_mp(this, &AnimationTrackEditor::_zoom_changed));
 
 	panner.instantiate();
 	panner->set_scroll_zoom_factor(AnimationTimelineEdit::SCROLL_ZOOM_FACTOR_IN);
@@ -7910,6 +8043,13 @@ AnimationTrackEditor::AnimationTrackEditor() {
 	box_selection->set_mouse_filter(MOUSE_FILTER_IGNORE);
 	box_selection->hide();
 	box_selection->connect(SceneStringName(draw), callable_mp(this, &AnimationTrackEditor::_box_selection_draw));
+
+	// Let's set up a thingy to draw around selected nodes
+	scale_control = memnew(Control);
+	box_selection_container->add_child(scale_control);
+	scale_control->set_mouse_filter(MOUSE_FILTER_IGNORE);
+	scale_control->hide();
+	scale_control->connect(SceneStringName(draw), callable_mp(this, &AnimationTrackEditor::_scale_control_draw));
 
 	// Default Plugins.
 

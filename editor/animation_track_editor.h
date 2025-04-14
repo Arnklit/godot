@@ -531,6 +531,7 @@ public:
 	void append_to_selection(const Rect2 &p_box, bool p_deselection);
 
 	AnimationTrackEdit();
+	virtual CursorShape get_cursor_shape(const Point2 &p_pos) const override;
 };
 
 class AnimationTrackEditPlugin : public RefCounted {
@@ -571,6 +572,7 @@ public:
 	void set_editor(AnimationTrackEditor *p_editor);
 
 	AnimationTrackEditGroup();
+	virtual CursorShape get_cursor_shape(const Point2 &p_pos) const override;
 };
 
 class AnimationTrackEditor : public VBoxContainer {
@@ -737,18 +739,27 @@ class AnimationTrackEditor : public VBoxContainer {
 	AnimationTrackKeyEdit *key_edit = nullptr;
 	AnimationMultiTrackKeyEdit *multi_key_edit = nullptr;
 	void _update_key_edit();
+	void _update_scale_control();
 	void _clear_key_edit();
 
 	Control *box_selection_container = nullptr;
 
 	Control *box_selection = nullptr;
 	void _box_selection_draw();
+	void _scale_control_draw();
 	bool box_selecting = false;
 	Vector2 box_selecting_from;
 	Vector2 box_selecting_to;
 	Rect2 box_select_rect;
 	Vector2 prev_scroll_position;
 	void _scroll_input(const Ref<InputEvent> &p_event);
+
+	Control *scale_control = nullptr;
+	bool is_scaling_right = false;
+	bool is_scaling_left = false;
+	float scale_drag_start_pos = 0.0f;
+	float scale_origin = 0.0f;
+	Vector<float> original_scale_times;
 
 	Vector<Ref<AnimationTrackEditPlugin>> track_edit_plugins;
 
@@ -871,6 +882,7 @@ public:
 	void _clear_selection(bool p_update = false);
 	void _key_selected(int p_key, bool p_single, int p_track);
 	void _key_deselected(int p_key, int p_track);
+	void _zoom_changed();
 
 	enum {
 		EDIT_COPY_TRACKS,
@@ -910,6 +922,7 @@ public:
 
 	void set_animation(const Ref<Animation> &p_anim, bool p_read_only);
 	Ref<Animation> get_current_animation() const;
+	Control *get_scale_control() const;
 	void set_root(Node *p_root);
 	Node *get_root() const;
 	void update_keying();
