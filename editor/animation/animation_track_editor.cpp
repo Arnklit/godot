@@ -2273,6 +2273,13 @@ void AnimationTrackEdit::_notification(int p_what) {
 					if (editor->is_key_selected(track, i) && editor->is_moving_selection()) {
 						offset = offset + editor->get_moving_selection_offset();
 					}
+					if (editor->is_key_selected(track, i) && editor->is_scaling_selection()) {
+						float dynamic_scaling = editor->get_scaling_selection_drag() - editor->get_scaling_selection_pivot();
+						dynamic_scaling /= editor->get_scaling_selection_drag_start() - editor->get_scaling_selection_pivot();
+						dynamic_scaling = abs(dynamic_scaling);
+						offset = (offset - editor->get_scaling_selection_pivot()) * dynamic_scaling + editor->get_scaling_selection_pivot();
+					}
+
 					offset = offset * scale + limit;
 					if (i < animation->track_get_key_count(track) - 1) {
 						float offset_n = animation->track_get_key_time(track, i + 1) - timeline->get_value();
@@ -3264,6 +3271,16 @@ void AnimationTrackEdit::gui_input(const Ref<InputEvent> &p_event) {
 		}
 	}
 
+	if (mb.is_valid() && editor->is_scaling_selection()) {
+		if (!mb->is_pressed() && mb->get_button_index() == MouseButton::LEFT) {
+			emit_signal(SNAME("scale_selection_commit"));
+		}
+
+		if (mb->is_pressed() && mb->get_button_index() == MouseButton::RIGHT) {
+			// TODO add cancel for scale here
+		}
+	}
+
 	Ref<InputEventMouseMotion> mm = p_event;
 	if (mm.is_valid()) {
 		const int previous_hovering_key_idx = hovering_key_idx;
@@ -3682,6 +3699,12 @@ void AnimationTrackEdit::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("move_selection_commit"));
 	ADD_SIGNAL(MethodInfo("move_selection_cancel"));
 
+	// What are these signals used for? I'm not firing them yet for scaling, but I set them up because they exist for move.
+	ADD_SIGNAL(MethodInfo("scale_selection_begin", PropertyInfo(Variant::FLOAT, "pivot"), PropertyInfo(Variant::FLOAT, "drag_start")));
+	ADD_SIGNAL(MethodInfo("scale_selection", PropertyInfo(Variant::FLOAT, "offset")));
+	ADD_SIGNAL(MethodInfo("scale_selection_commit"));
+	ADD_SIGNAL(MethodInfo("scale_selection_cancel"));
+
 	ADD_SIGNAL(MethodInfo("duplicate_request", PropertyInfo(Variant::FLOAT, "offset"), PropertyInfo(Variant::BOOL, "is_offset_valid")));
 	ADD_SIGNAL(MethodInfo("create_reset_request"));
 	ADD_SIGNAL(MethodInfo("copy_request"));
@@ -3907,6 +3930,32 @@ AnimationTrackEditGroup::AnimationTrackEditGroup() {
 
 //////////////////////////////////////
 
+//Control::CursorShape AnimationTrackEdit::get_cursor_shape(const Point2 &p_pos) const {
+//	// The reason this is not currently working is that these mouse positions are in the local trackedit / group
+//	// whereas the scale rect is in the space of scroll window. not sure why I don't have a view I can call on that instead
+//
+//	return get_default_cursor_shape();
+//
+//	Rect2 scale_rect = editor->get_scale_control()->get_rect();
+//	Rect2 left_edge = Rect2(scale_rect.position, Vector2(8, scale_rect.size.y));
+//	Rect2 right_edge = Rect2(scale_rect.position + Vector2(scale_rect.size.x - 8, 0), Vector2(8, scale_rect.size.y));
+//
+//	if (scale_rect.has_point(p_pos)) {
+//		return Control::CURSOR_HSIZE;
+//	}
+//}
+
+//Control::CursorShape AnimationTrackEditGroup::get_cursor_shape(const Point2 &p_pos) const {
+//	return get_default_cursor_shape();
+//	Rect2 scale_rect = editor->get_scale_control()->get_rect();
+//	Rect2 left_edge = Rect2(scale_rect.position, Vector2(8, scale_rect.size.y));
+//	Rect2 right_edge = Rect2(scale_rect.position + Vector2(scale_rect.size.x - 8, 0), Vector2(8, scale_rect.size.y));
+//
+//	if (scale_rect.has_point(p_pos)) {
+//		return Control::CURSOR_HSIZE;
+//	}
+//}
+
 void AnimationTrackEditor::add_track_edit_plugin(const Ref<AnimationTrackEditPlugin> &p_plugin) {
 	if (track_edit_plugins.has(p_plugin)) {
 		return;
@@ -3999,6 +4048,10 @@ void AnimationTrackEditor::_check_bezier_exist() {
 
 Ref<Animation> AnimationTrackEditor::get_current_animation() const {
 	return animation;
+}
+
+Control *AnimationTrackEditor::get_scale_control() const {
+	return scale_control;
 }
 
 void AnimationTrackEditor::_root_removed() {
@@ -4098,10 +4151,19 @@ void AnimationTrackEditor::cleanup() {
 
 void AnimationTrackEditor::_name_limit_changed() {
 	_redraw_tracks();
+	if (selection.size() > 1) {
+		_update_scale_control();
+	}
 }
 
 void AnimationTrackEditor::_timeline_changed(float p_new_pos, bool p_timeline_only) {
 	emit_signal(SNAME("timeline_changed"), p_new_pos, p_timeline_only, false);
+}
+
+void AnimationTrackEditor::_zoom_changed() {
+	if (selection.size() > 1) {
+		_update_scale_control();
+	}
 }
 
 void AnimationTrackEditor::_track_remove_request(int p_track) {
@@ -5143,6 +5205,11 @@ void AnimationTrackEditor::_update_tracks() {
 		track_edit->connect("move_selection", callable_mp(this, &AnimationTrackEditor::_move_selection));
 		track_edit->connect("move_selection_commit", callable_mp(this, &AnimationTrackEditor::_move_selection_commit));
 		track_edit->connect("move_selection_cancel", callable_mp(this, &AnimationTrackEditor::_move_selection_cancel));
+		// What are these signals used for? I'm not firing them yet for scaling, but I set them up because they exist for move.
+		track_edit->connect("scale_selection_begin", callable_mp(this, &AnimationTrackEditor::_scale_selection_begin));
+		track_edit->connect("scale_selection", callable_mp(this, &AnimationTrackEditor::_scale_selection));
+		track_edit->connect("scale_selection_commit", callable_mp(this, &AnimationTrackEditor::_scale_selection_commit));
+		track_edit->connect("scale_selection_cancel", callable_mp(this, &AnimationTrackEditor::_scale_selection_cancel));
 
 		track_edit->connect("duplicate_request", callable_mp(this, &AnimationTrackEditor::_anim_duplicate_keys).bind(i), CONNECT_DEFERRED);
 		track_edit->connect("cut_request", callable_mp(this, &AnimationTrackEditor::_edit_menu_pressed).bind(EDIT_CUT_KEYS), CONNECT_DEFERRED);
@@ -5897,6 +5964,26 @@ void AnimationTrackEditor::_move_selection(float p_offset) {
 	_redraw_tracks();
 }
 
+void AnimationTrackEditor::_scale_selection_begin(float p_pivot, float p_drag_start) {
+	scaling_selection_pivot = p_pivot;
+	scaling_selection_drag_start = p_drag_start;
+	scaling_selection = true;
+	// test
+	float time_thingy = timeline->get_value();
+
+	original_scale_times.clear();
+	for (const KeyValue<SelectedKey, KeyInfo> &E : selection) {
+		int track = E.key.track;
+		int key_id = E.key.key;
+		original_scale_times.append(animation->track_get_key_time(track, key_id));
+	}
+}
+
+void AnimationTrackEditor::_scale_selection(float p_drag_time) {
+	scaling_selection_drag = p_drag_time;
+	_redraw_tracks();
+}
+
 struct _AnimMoveRestore {
 	int track = 0;
 	float time = 0;
@@ -5929,6 +6016,7 @@ void AnimationTrackEditor::_clear_key_edit() {
 
 void AnimationTrackEditor::_clear_selection(bool p_update) {
 	selection.clear();
+	scale_control->hide();
 
 	if (p_update) {
 		_redraw_tracks();
@@ -5939,6 +6027,7 @@ void AnimationTrackEditor::_clear_selection(bool p_update) {
 
 void AnimationTrackEditor::_update_key_edit() {
 	_clear_key_edit();
+	scale_control->hide();
 	if (animation.is_null()) {
 		return;
 	}
@@ -5998,8 +6087,39 @@ void AnimationTrackEditor::_update_key_edit() {
 		multi_key_edit->use_fps = timeline->is_using_fps();
 		multi_key_edit->root_path = root;
 
+		_update_scale_control();
+		scale_control->show();
+
 		EditorNode::get_singleton()->push_item(multi_key_edit);
 	}
+}
+
+void AnimationTrackEditor::_update_scale_control() {
+	// We need to not show the scale control if the multi select's time values are all the same. since you can't scale that.
+
+	Rect2 bounds = Rect2();
+	bool first_key = true;
+
+	for (const KeyValue<SelectedKey, KeyInfo> &E : selection) {
+		int track = E.key.track;
+		int key_id = E.key.key;
+		Rect2 key_rect = track_edits[track]->get_key_rect(key_id, timeline->get_zoom_scale());
+		key_rect.position.x += key_rect.size.width / 2;
+		key_rect.size.width = 0;
+		float offset = animation->track_get_key_time(track, key_id) - timeline->get_value();
+		offset = offset * timeline->get_zoom_scale() + timeline->get_name_limit();
+		key_rect.position.x += offset;
+		key_rect.position.y = track_edits[track]->get_global_position().y - scroll->get_global_position().y;
+
+		if (first_key) {
+			bounds = key_rect;
+			first_key = false;
+		} else {
+			bounds = bounds.merge(key_rect);
+		}
+	}
+
+	scale_control->set_rect(bounds);
 }
 
 void AnimationTrackEditor::_clear_selection_for_anim(const Ref<Animation> &p_anim) {
@@ -6127,10 +6247,31 @@ float AnimationTrackEditor::get_moving_selection_offset() const {
 	return moving_selection_offset;
 }
 
+bool AnimationTrackEditor::is_scaling_selection() const {
+	return scaling_selection;
+}
+
+float AnimationTrackEditor::get_scaling_selection_pivot() const {
+	return scaling_selection_pivot;
+}
+
+float AnimationTrackEditor::get_scaling_selection_drag_start() const {
+	return scaling_selection_drag_start;
+}
+
+float AnimationTrackEditor::get_scaling_selection_drag() const {
+	return scaling_selection_drag;
+}
+
 void AnimationTrackEditor::_box_selection_draw() {
 	const Rect2 selection_rect = Rect2(Point2(), box_selection->get_size());
 	box_selection->draw_rect(selection_rect, get_theme_color(SNAME("box_selection_fill_color"), EditorStringName(Editor)));
 	box_selection->draw_rect(selection_rect, get_theme_color(SNAME("box_selection_stroke_color"), EditorStringName(Editor)), false, Math::round(EDSCALE));
+}
+
+void AnimationTrackEditor::_scale_control_draw() {
+	const Rect2 scale_rect = Rect2(Point2(), scale_control->get_size());
+	scale_control->draw_rect(scale_rect, get_theme_color(SNAME("box_selection_stroke_color"), EditorStringName(Editor)), false, Math::round(EDSCALE));
 }
 
 void AnimationTrackEditor::_scroll_input(const Ref<InputEvent> &p_event) {
@@ -6145,6 +6286,24 @@ void AnimationTrackEditor::_scroll_input(const Ref<InputEvent> &p_event) {
 
 	if (mb.is_valid() && mb->get_button_index() == MouseButton::LEFT) {
 		if (mb->is_pressed()) {
+			// is is_visible_in_tree the right thing here?
+			if (scale_control->is_visible_in_tree()) {
+				Rect2 scale_rect = scale_control->get_rect();
+				Rect2 left_edge = Rect2(scale_rect.position, Vector2(8, scale_rect.size.y));
+				Rect2 right_edge = Rect2(scale_rect.position + Vector2(scale_rect.size.x - 8, 0), Vector2(8, scale_rect.size.y));
+
+				float right_edge_time = ((scale_control->get_end().x - timeline->get_name_limit()) / timeline->get_zoom_scale());
+				float left_edge_time = ((scale_control->get_begin().x - timeline->get_name_limit()) / timeline->get_zoom_scale());
+
+				if (left_edge.has_point(mb->get_position())) {
+					_scale_selection_begin(right_edge_time, left_edge_time);
+					return;
+				} else if (right_edge.has_point(mb->get_position())) {
+					_scale_selection_begin(left_edge_time, right_edge_time);
+					return;
+				}
+			}
+
 			box_selecting = true;
 			box_selecting_from = scroll->get_global_transform().xform(mb->get_position());
 			box_select_rect = Rect2();
@@ -6163,13 +6322,23 @@ void AnimationTrackEditor::_scroll_input(const Ref<InputEvent> &p_event) {
 			} else if (!mb->is_command_or_control_pressed() && !mb->is_shift_pressed()) {
 				_clear_selection(true); // Clear it.
 			}
-
 			box_selection->hide();
 			box_selecting = false;
+		} else if (is_scaling_selection()) {
+			scaling_selection = false; // TODO - should this be a function call to cancel scaling?
 		}
 	}
 
 	Ref<InputEventMouseMotion> mm = p_event;
+
+	if (mm.is_valid() && is_scaling_selection()) {
+		float drag_time = ((mm->get_position().x - timeline->get_name_limit()) / timeline->get_zoom_scale());
+		_scale_selection(drag_time);
+		Rect2 new_control = Rect2(scaling_selection_pivot * timeline->get_zoom_scale() + timeline->get_name_limit(), scale_control->get_begin().y, 0.0, scale_control->get_size().y);
+		new_control = new_control.expand(Point2(mm->get_position().x, scale_control->get_begin().y));
+		scale_control->set_rect(new_control);
+		return;
+	}
 
 	if (mm.is_valid() && box_selecting) {
 		if (!mm->get_button_mask().has_flag(MouseButtonMask::LEFT)) {
@@ -6220,9 +6389,8 @@ void AnimationTrackEditor::_toggle_bezier_edit() {
 }
 
 void AnimationTrackEditor::_scroll_changed(const Vector2 &p_val) {
+	const Vector2 scroll_difference = p_val - prev_scroll_position;
 	if (box_selecting) {
-		const Vector2 scroll_difference = p_val - prev_scroll_position;
-
 		Vector2 from = box_selecting_from - scroll_difference;
 		Vector2 to = box_selecting_to;
 
@@ -6240,7 +6408,9 @@ void AnimationTrackEditor::_scroll_changed(const Vector2 &p_val) {
 		box_selection->set_rect(Rect2(from - scroll->get_global_position(), rect.get_size()));
 		box_select_rect = rect;
 	}
-
+	Rect2 offset_scale_rect = Rect2(scale_control->get_rect().position - scroll_difference, scale_control->get_rect().size);
+	scale_control->set_rect(offset_scale_rect);
+	//_update_scale_control();
 	prev_scroll_position = p_val;
 }
 
@@ -6249,7 +6419,7 @@ void AnimationTrackEditor::_v_scroll_changed(float p_val) {
 }
 
 void AnimationTrackEditor::_h_scroll_changed(float p_val) {
-	_scroll_changed(Vector2(p_val, prev_scroll_position.y));
+	_scroll_changed(Vector2(p_val * timeline->get_zoom_scale(), prev_scroll_position.y));
 }
 
 void AnimationTrackEditor::_pan_callback(Vector2 p_scroll_vec, Ref<InputEvent> p_event) {
@@ -6848,6 +7018,7 @@ void AnimationTrackEditor::_edit_menu_pressed(int p_option) {
 			scale_dialog->popup_centered(Size2(200, 100) * EDSCALE);
 			scale->get_line_edit()->grab_focus();
 			scale_from_cursor = true;
+			scale_from_cursor = true;
 		} break;
 		case EDIT_SCALE_CONFIRM: {
 			if (selection.is_empty()) {
@@ -6856,103 +7027,23 @@ void AnimationTrackEditor::_edit_menu_pressed(int p_option) {
 
 			float from_t = 1e20;
 			float to_t = -1e20;
-			float len = -1e20;
-			float pivot = 0;
 
 			for (const KeyValue<SelectedKey, KeyInfo> &E : selection) {
 				float t = animation->track_get_key_time(E.key.track, E.key.key);
-				if (t < from_t) {
-					from_t = t;
-				}
-				if (t > to_t) {
-					to_t = t;
-				}
+				from_t = MIN(from_t, t);
+				to_t = MAX(to_t, t);
 			}
 
-			len = to_t - from_t;
-			if (scale_from_cursor) {
-				pivot = timeline->get_play_position();
-			} else {
-				pivot = from_t;
-			}
+			/* AnimScaleParams params;
+			params.from_time = from_t;
+			params.to_time = to_t;
+			params.scale_factor = scale->get_value();
+			params.relative_to_cursor = scale_from_cursor;
+			params.pivot = params.relative_to_cursor ? timeline->get_play_position() : from_t; */
 
-			float s = scale->get_value();
-			ERR_FAIL_COND_MSG(s == 0, "Can't scale to 0.");
+			// TODO - we need to run the _scale_begin and _scale_selection here
 
-			EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
-			undo_redo->create_action(TTR("Animation Scale Keys"));
-
-			List<_AnimMoveRestore> to_restore;
-
-			// 1 - Remove the keys.
-			for (RBMap<SelectedKey, KeyInfo>::Element *E = selection.back(); E; E = E->prev()) {
-				undo_redo->add_do_method(animation.ptr(), "track_remove_key", E->key().track, E->key().key);
-			}
-			// 2 - Remove overlapped keys.
-			for (RBMap<SelectedKey, KeyInfo>::Element *E = selection.back(); E; E = E->prev()) {
-				float newtime = (E->get().pos - from_t) * s + from_t;
-				int idx = animation->track_find_key(E->key().track, newtime, Animation::FIND_MODE_APPROX);
-				if (idx == -1) {
-					continue;
-				}
-				SelectedKey sk;
-				sk.key = idx;
-				sk.track = E->key().track;
-				if (selection.has(sk)) {
-					continue; // Already in selection, don't save.
-				}
-
-				undo_redo->add_do_method(animation.ptr(), "track_remove_key_at_time", E->key().track, newtime);
-				_AnimMoveRestore amr;
-
-				amr.key = animation->track_get_key_value(E->key().track, idx);
-				amr.track = E->key().track;
-				amr.time = newtime;
-				amr.transition = animation->track_get_key_transition(E->key().track, idx);
-
-				to_restore.push_back(amr);
-			}
-
-#define NEW_POS(m_ofs) (((s > 0) ? m_ofs : from_t + (len - (m_ofs - from_t))) - pivot) * Math::abs(s) + pivot
-			// 3 - Move the keys (re insert them).
-			for (RBMap<SelectedKey, KeyInfo>::Element *E = selection.back(); E; E = E->prev()) {
-				float newpos = NEW_POS(E->get().pos);
-				undo_redo->add_do_method(animation.ptr(), "track_insert_key", E->key().track, newpos, animation->track_get_key_value(E->key().track, E->key().key), animation->track_get_key_transition(E->key().track, E->key().key));
-			}
-
-			// 4 - (Undo) Remove inserted keys.
-			for (RBMap<SelectedKey, KeyInfo>::Element *E = selection.back(); E; E = E->prev()) {
-				float newpos = NEW_POS(E->get().pos);
-				undo_redo->add_undo_method(animation.ptr(), "track_remove_key_at_time", E->key().track, newpos);
-			}
-
-			// 5 - (Undo) Reinsert keys.
-			for (RBMap<SelectedKey, KeyInfo>::Element *E = selection.back(); E; E = E->prev()) {
-				undo_redo->add_undo_method(animation.ptr(), "track_insert_key", E->key().track, E->get().pos, animation->track_get_key_value(E->key().track, E->key().key), animation->track_get_key_transition(E->key().track, E->key().key));
-			}
-
-			// 6 - (Undo) Reinsert overlapped keys.
-			for (_AnimMoveRestore &amr : to_restore) {
-				undo_redo->add_undo_method(animation.ptr(), "track_insert_key", amr.track, amr.time, amr.key, amr.transition);
-			}
-
-			undo_redo->add_do_method(this, "_clear_selection_for_anim", animation);
-			undo_redo->add_undo_method(this, "_clear_selection_for_anim", animation);
-
-			// 7 - Reselect.
-			for (RBMap<SelectedKey, KeyInfo>::Element *E = selection.back(); E; E = E->prev()) {
-				float oldpos = E->get().pos;
-				float newpos = NEW_POS(oldpos);
-				if (newpos >= 0) {
-					undo_redo->add_do_method(this, "_select_at_anim", animation, E->key().track, newpos);
-				}
-				undo_redo->add_undo_method(this, "_select_at_anim", animation, E->key().track, oldpos);
-			}
-#undef NEW_POS
-
-			undo_redo->add_do_method(this, "_redraw_tracks");
-			undo_redo->add_undo_method(this, "_redraw_tracks");
-			undo_redo->commit_action();
+			_scale_selection_commit();
 		} break;
 
 		case EDIT_SET_START_OFFSET: {
@@ -7544,6 +7635,9 @@ void AnimationTrackEditor::_toggle_function_names() {
 
 void AnimationTrackEditor::_view_group_toggle() {
 	_update_tracks();
+	if (selection.size() > 1) {
+		callable_mp(this, &AnimationTrackEditor::_update_scale_control).call_deferred();
+	}
 	view_group->set_button_icon(get_editor_theme_icon(view_group->is_pressed() ? SNAME("AnimationTrackList") : SNAME("AnimationTrackGroup")));
 	bezier_edit->set_filtered(selected_filter->is_pressed());
 }
@@ -7688,6 +7782,118 @@ void AnimationTrackEditor::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("animation_step_changed", PropertyInfo(Variant::FLOAT, "step")));
 }
 
+void AnimationTrackEditor::_scale_selection_commit() {
+	if (selection.is_empty()) {
+		return;
+	}
+
+	// TODO protect against 0 scale like done before
+	// ERR_FAIL_COND_MSG(p_params.scale_factor == 0, "Can't scale to 0.");
+
+	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
+	undo_redo->create_action(TTR("Animation Scale Keys"));
+
+	List<_AnimMoveRestore> to_restore;
+
+	// TODO this is a mess if it needs to be called from the EDIT -> Scale function, since the scale is what is set there
+	// Maybe it makes more sense to calculate the scale outside this function and just set it globally, though it's a bit
+	// messy ... maybe just do that for now and when it works see if I can think of a way of cleaning it up.
+	float from_t = MIN(get_scaling_selection_pivot(), get_scaling_selection_drag_start());
+	float to_t = MAX(get_scaling_selection_pivot(), get_scaling_selection_drag_start());
+	float len = abs(get_scaling_selection_pivot() - get_scaling_selection_drag_start());
+	float scale_len = abs(get_scaling_selection_pivot() - get_scaling_selection_drag());
+	float scale_factor = scale_len / len;
+	float pivot = get_scaling_selection_pivot() + timeline->get_value();
+
+	// 1 - Remove the keys
+	for (RBMap<SelectedKey, KeyInfo>::Element *E = selection.back(); E; E = E->prev()) {
+		undo_redo->add_do_method(animation.ptr(), "track_remove_key", E->key().track, E->key().key);
+	}
+
+	// 2 - Remove overlapped keys
+	for (RBMap<SelectedKey, KeyInfo>::Element *E = selection.back(); E; E = E->prev()) {
+		float newtime = (E->get().pos - from_t) * scale_factor + from_t;
+		int idx = animation->track_find_key(E->key().track, newtime, Animation::FIND_MODE_APPROX);
+		if (idx == -1) {
+			continue;
+		}
+		SelectedKey sk;
+		sk.key = idx;
+		sk.track = E->key().track;
+		if (selection.has(sk)) {
+			continue;
+		}
+
+		undo_redo->add_do_method(animation.ptr(), "track_remove_key_at_time", E->key().track, newtime);
+		_AnimMoveRestore amr;
+		amr.key = animation->track_get_key_value(E->key().track, idx);
+		amr.track = E->key().track;
+		amr.time = newtime;
+		amr.transition = animation->track_get_key_transition(E->key().track, idx);
+		to_restore.push_back(amr);
+	}
+
+	// 3 - Move the keys (reinsert them)
+	for (RBMap<SelectedKey, KeyInfo>::Element *E = selection.back(); E; E = E->prev()) {
+		float newpos = ((scale_factor > 0)
+									   ? (E->get().pos - pivot)
+									   : (from_t + (len - (E->get().pos - from_t)) - pivot)) *
+						Math::abs(scale_factor) +
+				pivot;
+		undo_redo->add_do_method(animation.ptr(), "track_insert_key", E->key().track, newpos,
+				animation->track_get_key_value(E->key().track, E->key().key),
+				animation->track_get_key_transition(E->key().track, E->key().key));
+	}
+
+	// 4 - (Undo) Remove inserted keys
+	for (RBMap<SelectedKey, KeyInfo>::Element *E = selection.back(); E; E = E->prev()) {
+		float newpos = ((scale_factor > 0)
+									   ? (E->get().pos - pivot)
+									   : (from_t + (len - (E->get().pos - from_t)) - pivot)) *
+						Math::abs(scale_factor) +
+				pivot;
+		undo_redo->add_undo_method(animation.ptr(), "track_remove_key_at_time", E->key().track, newpos);
+	}
+
+	// 5 - (Undo) Reinsert keys
+	for (RBMap<SelectedKey, KeyInfo>::Element *E = selection.back(); E; E = E->prev()) {
+		undo_redo->add_undo_method(animation.ptr(), "track_insert_key", E->key().track, E->get().pos,
+				animation->track_get_key_value(E->key().track, E->key().key),
+				animation->track_get_key_transition(E->key().track, E->key().key));
+	}
+
+	// 6 - (Undo) Reinsert overlapped keys
+	for (_AnimMoveRestore &amr : to_restore) {
+		undo_redo->add_undo_method(animation.ptr(), "track_insert_key", amr.track, amr.time, amr.key, amr.transition);
+	}
+
+	undo_redo->add_do_method(this, "_clear_selection_for_anim", animation);
+	undo_redo->add_undo_method(this, "_clear_selection_for_anim", animation);
+
+	// 7 - Reselect
+	for (RBMap<SelectedKey, KeyInfo>::Element *E = selection.back(); E; E = E->prev()) {
+		float oldpos = E->get().pos;
+		float newpos = ((scale_factor > 0)
+									   ? (oldpos - pivot)
+									   : (from_t + (len - (oldpos - from_t)) - pivot)) *
+						Math::abs(scale_factor) +
+				pivot;
+		if (newpos >= 0) {
+			undo_redo->add_do_method(this, "_select_at_anim", animation, E->key().track, newpos);
+		}
+		undo_redo->add_undo_method(this, "_select_at_anim", animation, E->key().track, oldpos);
+	}
+
+	undo_redo->add_do_method(this, "_redraw_tracks");
+	undo_redo->add_undo_method(this, "_redraw_tracks");
+	undo_redo->commit_action();
+}
+
+void AnimationTrackEditor::_scale_selection_cancel() {
+	// TODO what do we need here?
+	// How is a scale operation actually cancelled? I can do it on a move I guess, maybe pressing eac or right clicking?
+}
+
 void AnimationTrackEditor::_pick_track_filter_text_changed(const String &p_newtext) {
 	TreeItem *root_item = pick_track->get_scene_tree()->get_scene_tree()->get_root();
 
@@ -7767,6 +7973,7 @@ AnimationTrackEditor::AnimationTrackEditor() {
 	timeline->connect("track_added", callable_mp(this, &AnimationTrackEditor::_add_track));
 	timeline->connect(SceneStringName(value_changed), callable_mp(this, &AnimationTrackEditor::_timeline_value_changed));
 	timeline->connect("length_changed", callable_mp(this, &AnimationTrackEditor::_update_length));
+	timeline->connect("zoom_changed", callable_mp(this, &AnimationTrackEditor::_zoom_changed));
 	timeline->connect("filter_changed", callable_mp(this, &AnimationTrackEditor::_update_tracks));
 
 	panner.instantiate();
@@ -7799,7 +8006,6 @@ AnimationTrackEditor::AnimationTrackEditor() {
 	scroll->connect(SceneStringName(focus_exited), callable_mp(panner.ptr(), &ViewPanner::release_pan_key));
 
 	scroll->get_v_scroll_bar()->connect(SceneStringName(value_changed), callable_mp(this, &AnimationTrackEditor::_v_scroll_changed));
-	scroll->get_h_scroll_bar()->connect(SceneStringName(value_changed), callable_mp(this, &AnimationTrackEditor::_h_scroll_changed));
 
 	bezier_edit = memnew(AnimationBezierTrackEdit);
 	timeline_vbox->add_child(bezier_edit);
@@ -7815,6 +8021,7 @@ AnimationTrackEditor::AnimationTrackEditor() {
 	hscroll->share(timeline);
 	hscroll->hide();
 	hscroll->connect(SceneStringName(value_changed), callable_mp(this, &AnimationTrackEditor::_update_scroll));
+	hscroll->connect(SceneStringName(value_changed), callable_mp(this, &AnimationTrackEditor::_h_scroll_changed));
 	timeline_vbox->add_child(hscroll);
 	timeline->set_hscroll(hscroll);
 
@@ -8078,6 +8285,13 @@ AnimationTrackEditor::AnimationTrackEditor() {
 	box_selection->set_mouse_filter(MOUSE_FILTER_IGNORE);
 	box_selection->hide();
 	box_selection->connect(SceneStringName(draw), callable_mp(this, &AnimationTrackEditor::_box_selection_draw));
+
+	// Let's set up a thingy to draw around selected nodes
+	scale_control = memnew(Control);
+	box_selection_container->add_child(scale_control);
+	scale_control->set_mouse_filter(MOUSE_FILTER_IGNORE);
+	scale_control->hide();
+	scale_control->connect(SceneStringName(draw), callable_mp(this, &AnimationTrackEditor::_scale_control_draw));
 
 	// Default Plugins.
 
