@@ -56,6 +56,7 @@
 #include "scene/gui/tree.h"
 #include "scene/resources/packed_scene.h"
 #include "scene/theme/theme_db.h"
+#include "servers/display/display_server.h"
 
 void ScalableContainer::_notification(int p_what) {
 	if (EDSCALE == 1 || p_what != NOTIFICATION_SORT_CHILDREN) {
@@ -91,11 +92,9 @@ void ThemeEditorPreview::set_preview_theme(const Ref<Theme> &p_theme) {
 
 void ThemeEditorPreview::add_preview_overlay(Control *p_overlay) {
 	preview_overlay->add_child(p_overlay);
-	p_overlay->hide();
 }
 
 void ThemeEditorPreview::_picker_button_cbk() {
-	picker_overlay->set_visible(picker_button->is_pressed());
 	if (picker_button->is_pressed()) {
 		_reset_picker_overlay();
 	}
@@ -166,11 +165,32 @@ void ThemeEditorPreview::_draw_picker_overlay() {
 }
 
 void ThemeEditorPreview::_gui_input_picker_overlay(const Ref<InputEvent> &p_event) {
-	if (!picker_button->is_pressed()) {
+	// Mouse panning
+	Ref<InputEventMouseButton> mb = p_event;
+	if (mb.is_valid() && mb->get_button_index() == MouseButton::MIDDLE) {
+		if (mb->is_pressed()) {
+			dragging = true;
+			drag_start_position = mb->get_position();
+			drag_scroll_start = Vector2(preview_container->get_h_scroll(), preview_container->get_v_scroll());
+		} else {
+			dragging = false;
+		}
 		return;
 	}
 
-	Ref<InputEventMouseButton> mb = p_event;
+	Ref<InputEventMouseMotion> mm = p_event;
+	if (mm.is_valid() && dragging) {
+		Vector2 drag_delta = drag_start_position - mm->get_position();
+		preview_container->set_h_scroll(drag_scroll_start.x + drag_delta.x);
+		preview_container->set_v_scroll(drag_scroll_start.y + drag_delta.y);
+		return;
+	}
+
+	// Control picker
+	if (!picker_button->is_pressed()) {
+		preview_container->gui_input(p_event);
+		return;
+	}
 
 	if (mb.is_valid() && mb->is_pressed() && mb->get_button_index() == MouseButton::LEFT) {
 		if (hovered_control) {
@@ -185,8 +205,6 @@ void ThemeEditorPreview::_gui_input_picker_overlay(const Ref<InputEvent> &p_even
 			return;
 		}
 	}
-
-	Ref<InputEventMouseMotion> mm = p_event;
 
 	if (mm.is_valid()) {
 		Vector2 mp = preview_content->get_local_mouse_position();

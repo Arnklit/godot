@@ -84,6 +84,10 @@ protected:
 	ScalableContainer *preview_content = nullptr;
 	Button *picker_button = nullptr;
 
+	bool dragging = false;
+	Vector2 drag_start_position;
+	Vector2 drag_scroll_start;
+
 	void add_preview_overlay(Control *p_overlay);
 
 	void _notification(int p_what);
